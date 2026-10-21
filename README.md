@@ -23,7 +23,7 @@ What it does:
 ## Quick start (from GitHub)
 
 ```sh
-git clone https://github.com/Torrentialtech/lifeos
+git clone https://github.com/mozyn/lifeos
 cd lifeos
 # set LIFEOS_VAULT_HOST in .env to your notes folder (or just run ./install.sh and answer)
 docker compose up -d --build
