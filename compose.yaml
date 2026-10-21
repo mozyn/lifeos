@@ -1,4 +1,5 @@
 # LifeOS (portable edition): three containers built from ./src, your notes folder mounted at /vault.
+# The app on GitHub: https://github.com/mozyn/lifeos  (git clone it, then docker compose up -d --build)
 #
 # Dockge / NAS: copy this folder to your stacks directory, set LIFEOS_VAULT_HOST, LIFEOS_BIND=0.0.0.0
 # and LIFEOS_UID/GID in the .env editor, Deploy. The first build takes a few minutes; then open
