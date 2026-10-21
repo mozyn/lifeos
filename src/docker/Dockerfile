@@ -47,7 +47,7 @@ COPY fixtures/starter-vault starter-vault
 # /data is writable by whichever user the notes' owner runs it as (compose LIFEOS_UID), so a new
 # volume works for uid 1000 and for anyone else; /auth too, since compose mounts the same data
 # volume there unless LIFEOS_AUTH_DIR is set (ADR-90)
-RUN mkdir -p /data /vault /auth && chown node:node /data /auth && chmod 0777 /data /auth
+RUN mkdir -p /data /vault /auth && chown node:node /data /vault /auth && chmod 0777 /data /auth
 USER node
 EXPOSE 8481
 CMD ["node", "apps/api/dist/server.js"]

@@ -45,8 +45,8 @@ if ($LASTEXITCODE -ne 0) { Die 'Docker Compose v2 is missing. Update Docker Desk
 docker info *> $null
 if ($LASTEXITCODE -ne 0) { Die 'Docker Desktop is not running. Start it and try again.' }
 
-# 2. .env (it comes with the folder)
-if (-not (Test-Path $EnvFile)) { Die 'this folder has no .env (it comes with LifeOS). Copy it from the LifeOS folder you downloaded.' }
+# 2. .env (made when missing: the folder ships one file, compose.yaml)
+if (-not (Test-Path $EnvFile)) { Set-Content -Path $EnvFile -Value 'LIFEOS_NAME=','LIFEOS_VAULT_HOST=','LIFEOS_UID=','LIFEOS_GID=','LIFEOS_PORT=','TZ=' }
 $Name = Get-EnvValue 'LIFEOS_NAME'
 if (-not $Name) { $Name = 'lifeos' }
 

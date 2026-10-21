@@ -50,8 +50,8 @@ command -v docker >/dev/null 2>&1 || die "Docker is not installed. Install Docke
 docker compose version >/dev/null 2>&1 || die "Docker Compose v2 is missing ('docker compose version' failed). Update Docker."
 docker info >/dev/null 2>&1 || die "Docker is installed but not running, or this user may not use it. Start Docker Desktop; on Linux, add yourself to the 'docker' group and log in again."
 
-# ---------------------------------------------------------------- 2. .env (it comes with the folder)
-[ -f .env ] || die "this folder has no .env (it comes with LifeOS; Finder and some file managers hide files starting with a dot). Copy it from the LifeOS folder you downloaded."
+# ---------------------------------------------------------------- 2. .env (made when missing: the folder ships one file, compose.yaml)
+[ -f .env ] || printf 'LIFEOS_NAME=\nLIFEOS_VAULT_HOST=\nLIFEOS_UID=\nLIFEOS_GID=\nLIFEOS_PORT=\nTZ=\n' >.env
 chmod 600 .env 2>/dev/null || true
 NAME="$(getenv LIFEOS_NAME)"
 NAME="${NAME:-lifeos}"

@@ -1,21 +1,21 @@
-# LifeOS (compose-only edition): three containers pulled from ghcr.io/mozyn/lifeos, your notes
-# folder mounted at /vault. No build and no source needed: this one file is the app.
-# The app on GitHub: https://github.com/mozyn/lifeos
+# LifeOS: https://github.com/mozyn/lifeos
 #
-# New install: this one file is the app. Edit the LIFEOS_VAULT_HOST line (default ./notes: a
-# starter-notes folder made beside this file) to your notes folder, then
-#   docker compose up -d     open http://<this machine>:8480/lifeos
-# On the first start the stack makes its own secrets and puts the starter notes in an empty notes
-# folder. .env is optional: every other setting has a default (see .env for the list).
-# README.md: "Install on a NAS" for ZimaOS/TrueNAS/Unraid, "Connect Hermes" for the AI part.
-# To run a newer version: set LIFEOS_IMAGE_TAG in .env (the tags are on the GitHub releases page).
+# Install: save this file as compose.yaml, run  docker compose up -d
+# then open http://localhost:8480/lifeos and choose a passphrase. Nothing here needs changing.
+#
+# Optional edits:
+# - Your own notes (an Obsidian vault or any folder of .md files): on the line marked
+#   "your notes", replace the word notes with the folder's path, for example /home/sara/Notes.
+#   Without that, LifeOS starts with sample notes stored inside Docker.
+# - Open it from your phone or other computers on your network: replace both 127.0.0.1 with 0.0.0.0.
+# - Your notes folder belongs to a user other than 1000 (TrueNAS 568, Unraid 99:100): change the
+#   two 1000s on the "user:" line to its owner.
 name: ${LIFEOS_NAME:-lifeos}
 
 services:
   api:
     image: ghcr.io/mozyn/lifeos-api:${LIFEOS_IMAGE_TAG:-latest}
     container_name: ${LIFEOS_NAME:-lifeos}-api
-    # the notes' owner (LIFEOS_UID/GID), so files written in the vault stay theirs
     user: "${LIFEOS_UID:-1000}:${LIFEOS_GID:-1000}"
     restart: unless-stopped
     environment:
@@ -29,14 +29,11 @@ services:
       LIFEOS_PUBLIC_URL: ${LIFEOS_PUBLIC_URL:-http://localhost:${LIFEOS_PORT:-8480}/lifeos}
       LIFEOS_SEARXNG_URL: http://lifeos-searxng:8080
       LIFEOS_SETUP_SEED: ${LIFEOS_SETUP_SEED:-}
-      # the Hermes prompt names this container, its network and the published port (ADR-88)
       LIFEOS_NAME: ${LIFEOS_NAME:-lifeos}
       LIFEOS_PORT: ${LIFEOS_PORT:-8480}
-      # 0.0.0.0: the app says once that plain http cannot install it or notify (product brief 10 §2)
       LIFEOS_BIND: ${LIFEOS_BIND:-127.0.0.1}
       LIFEOS_STARTER: ${LIFEOS_STARTER:-on}
     env_file:
-      # the model endpoint (.env.ai; an older .env.gsq still works), Telegram, browser notifications
       - path: ${LIFEOS_ENV_AI:-.env.ai}
         required: false
       - path: ${LIFEOS_ENV_GSQ:-.env.gsq}
@@ -46,9 +43,8 @@ services:
       - path: ${LIFEOS_ENV_PUSH:-.env.push}
         required: false
     volumes:
-      - ${LIFEOS_VAULT_HOST:-./notes}:/vault:rw
+      - ${LIFEOS_VAULT_HOST:-notes}:/vault:rw # your notes
       - data:/data
-      # the passphrase file (.env.auth): in the data volume, or in LIFEOS_AUTH_DIR when it is set
       - ${LIFEOS_AUTH_DIR:-data}:/auth:rw
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -83,8 +79,6 @@ services:
     container_name: ${LIFEOS_NAME:-lifeos}-searxng
     user: "977:977"
     restart: unless-stopped
-    # its secret: SEARXNG_SECRET from .env.searxng, else made on the first start (the image's
-    # baked-in start.sh keeps it in the searxng-etc volume)
     environment:
       SEARXNG_SETTINGS_PATH: /lifeos/settings.yml
       __SEARXNG_SETTINGS_PATH: /lifeos/settings.yml
@@ -106,6 +100,8 @@ services:
       start_period: 15s
 
 volumes:
+  notes:
+    name: ${LIFEOS_NAME:-lifeos}-notes
   data:
     name: ${LIFEOS_DATA_VOLUME:-${LIFEOS_NAME:-lifeos}-data}
   searxng-etc:

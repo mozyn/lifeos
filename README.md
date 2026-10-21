@@ -20,6 +20,13 @@ What it does:
   model you choose can draft the morning plan and the evening review; you approve each one.
   Without one, LifeOS drafts them plainly from your tasks and times.
 
+## Quick start: one file
+
+Download [`compose.yaml`](https://github.com/mozyn/lifeos/raw/main/compose.yaml), then in its
+folder run `docker compose up -d` and open **http://localhost:8480/lifeos**. Nothing needs
+changing; the few optional edits (your own notes folder, opening it from your phone) are explained
+at the top of the file.
+
 ## What you need
 
 - **Docker**: Docker Desktop (Windows, macOS) or Docker Engine with Compose (Linux), or a NAS
