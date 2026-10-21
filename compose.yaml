@@ -1,11 +1,12 @@
 # LifeOS (compose-only edition): three containers pulled from ghcr.io/mozyn/lifeos, your notes
-# folder mounted at /vault. No build and no source needed: this compose file plus .env is the app.
+# folder mounted at /vault. No build and no source needed: this one file is the app.
 # The app on GitHub: https://github.com/mozyn/lifeos
 #
-# New install: set LIFEOS_VAULT_HOST in .env (Dockge: the .env panel), then
+# New install: this one file is the app. Edit the LIFEOS_VAULT_HOST line (default ./notes: a
+# starter-notes folder made beside this file) to your notes folder, then
 #   docker compose up -d     open http://<this machine>:8480/lifeos
 # On the first start the stack makes its own secrets and puts the starter notes in an empty notes
-# folder. Everything else is in .env; optional secrets in .env.ai and .env.telegram beside it.
+# folder. .env is optional: every other setting has a default (see .env for the list).
 # README.md: "Install on a NAS" for ZimaOS/TrueNAS/Unraid, "Connect Hermes" for the AI part.
 # To run a newer version: set LIFEOS_IMAGE_TAG in .env (the tags are on the GitHub releases page).
 name: ${LIFEOS_NAME:-lifeos}
@@ -45,7 +46,7 @@ services:
       - path: ${LIFEOS_ENV_PUSH:-.env.push}
         required: false
     volumes:
-      - ${LIFEOS_VAULT_HOST:?set it in .env (in Dockge, the .env panel) to your notes folder, for example /DATA/Documents/Notes (an empty folder gets the starter notes)}:/vault:rw
+      - ${LIFEOS_VAULT_HOST:-./notes}:/vault:rw
       - data:/data
       # the passphrase file (.env.auth): in the data volume, or in LIFEOS_AUTH_DIR when it is set
       - ${LIFEOS_AUTH_DIR:-data}:/auth:rw
