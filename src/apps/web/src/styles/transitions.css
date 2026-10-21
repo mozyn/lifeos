@@ -1,0 +1,143 @@
+/* ------------------------------------------------------------------ view transitions (UI brief 2 §3)
+   lib/transitions.ts sets data-vt on the element that transitions (the scope, or :root for the
+   document) and --vt-dir (1 forward, -1 back). Only transform and opacity move. */
+
+/* the page stays touchable while a transition plays */
+::view-transition {
+  pointer-events: none;
+}
+
+/* tab switches are not view transitions: the panes slide on the compositor (lib/panes.ts, UI
+   brief 3); capturing a whole screen and its replacement cost more than a display interval */
+
+/* Today's moment and Week prev/next: the cards slide and fade, the header stays */
+[data-vt='moment']::view-transition-old(root),
+[data-vt='week']::view-transition-old(root) {
+  animation: vt-slide-out-far 260ms cubic-bezier(0.3, 0, 0.2, 1) both;
+}
+
+[data-vt='moment']::view-transition-new(root),
+[data-vt='week']::view-transition-new(root) {
+  animation: vt-slide-in-far 260ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+/* the Lists switch is not a view transition (round-2 brief §7): its segments stay mounted and
+   cross-fade on the compositor (lib/segments.ts) */
+
+/* light / dark: the new appearance grows in a circle from the sun/moon (the circle itself is a Web
+   Animation on ::view-transition-new(root), see revealTheme); the old one stays still under it */
+:root[data-vt='theme']::view-transition-old(root),
+:root[data-vt='theme']::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+:root[data-vt='theme']::view-transition-group(root) {
+  animation: none;
+}
+
+/* drill-in: the tapped row grows into its sheet on the smooth spring; closing runs it back */
+:root[data-vt='drill']::view-transition-group(lifeos-drill) {
+  animation-duration: var(--spring-smooth-ms, 360ms);
+  animation-timing-function: var(--spring-smooth, cubic-bezier(0.2, 0.8, 0.2, 1));
+  overflow: clip;
+  border-radius: var(--r-card);
+}
+
+:root[data-vt='drill']::view-transition-old(lifeos-drill),
+:root[data-vt='drill']::view-transition-new(lifeos-drill) {
+  animation-duration: 200ms;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+
+:root[data-vt='drill']::view-transition-old(root),
+:root[data-vt='drill']::view-transition-new(root) {
+  animation-duration: 220ms;
+}
+
+/* a sheet that grew from a row does not also rise from the bottom */
+.sheet[data-drill] {
+  animation: none;
+}
+
+/* reduced motion: every transition is a 120 ms opacity fade, nothing moves */
+[data-vt='fade']::view-transition-group(*) {
+  animation: none;
+}
+
+[data-vt='fade']::view-transition-old(*) {
+  animation: vt-fade-out 120ms linear both;
+}
+
+[data-vt='fade']::view-transition-new(*) {
+  animation: vt-fade-in 120ms linear both;
+}
+
+@keyframes vt-slide-out-far {
+  to {
+    opacity: 0;
+    transform: translateX(calc(var(--vt-dir, 1) * -40px));
+  }
+}
+
+@keyframes vt-slide-in-far {
+  from {
+    opacity: 0;
+    transform: translateX(calc(var(--vt-dir, 1) * 40px));
+  }
+}
+
+@keyframes vt-fade-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes vt-fade-in {
+  from {
+    opacity: 0;
+  }
+}
+
+/* reduced motion everywhere else: transitions keep only their fade (120 ms); sheets and toasts
+   fade in instead of rising */
+:root[data-motion='reduced'] *,
+:root[data-motion='reduced'] *::before,
+:root[data-motion='reduced'] *::after {
+  transition-property: opacity, visibility !important;
+  transition-duration: 120ms !important;
+  transition-delay: 0s !important;
+}
+
+:root[data-motion='reduced'] .sheet,
+:root[data-motion='reduced'] .toast,
+:root[data-motion='reduced'] .day-pop,
+:root[data-motion='reduced'] .overlay::before {
+  animation: vt-fade-in 120ms linear !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full']) *,
+  :root:not([data-motion='full']) *::before,
+  :root:not([data-motion='full']) *::after {
+    transition-property: opacity, visibility !important;
+    transition-duration: 120ms !important;
+    transition-delay: 0s !important;
+  }
+  :root:not([data-motion='full']) .sheet,
+  :root:not([data-motion='full']) .toast,
+  :root:not([data-motion='full']) .day-pop,
+  :root:not([data-motion='full']) .overlay::before {
+    animation: vt-fade-in 120ms linear !important;
+  }
+}
+
+/* a pane (lib/panes.ts) and a Lists segment (lib/segments.ts) switch by their own animations
+   only: never by a transition, reduced motion included (a transition on visibility would keep a
+   hidden one on screen for 120 ms) */
+:root .pane,
+:root .seg-pane {
+  transition: none !important;
+}

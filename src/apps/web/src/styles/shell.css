@@ -1,0 +1,747 @@
+/* ------------------------------------------------------------------ app frame
+   The window is the theme's mesh. Navigation and controls float above it on Liquid Glass (top bar
+   controls, the floating tab bar, Quick Add, the rail on the fold's inner screen); content scrolls
+   underneath on solid cards, softened at the edges. */
+.app {
+  --chrome-top: calc(68px + env(safe-area-inset-top));
+  --chrome-bottom: calc(108px + env(safe-area-inset-bottom));
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--app-mesh);
+}
+
+.main {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* the screens' track (UI brief 3, lib/panes.ts): every screen is a pane that scrolls on its own;
+   one is visible, the others keep their DOM, layout and scroll position but are skipped by the
+   renderer. A switch slides two panes by their transform on the compositor. */
+.content {
+  position: absolute;
+  inset: 0;
+  overflow: clip;
+}
+
+.pane {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  padding: var(--chrome-top) 0 var(--chrome-bottom);
+  scrollbar-width: none;
+  /* always its own layer, so a slide never promotes (or repaints) a pane when it starts */
+  will-change: transform;
+  contain: layout paint style;
+  outline: none;
+}
+
+.pane::-webkit-scrollbar {
+  display: none;
+}
+
+.pane[data-state='hidden'] {
+  visibility: hidden;
+  content-visibility: hidden;
+}
+
+/* mounted ahead of its first visit: laid out once, invisibly, in idle time (lib/panes.ts) */
+.pane[data-state='warming'] {
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* 'ready' (parked beside the visible pane while a finger is down on its tab), 'in' and 'out'
+   (sliding) style nothing of their own: a state change that restyled a pane's subtree (an
+   inherited property such as pointer-events) or repainted it (a z-index) would cost a frame */
+
+.page {
+  width: 100%;
+  max-width: 640px;
+  margin: 0 auto;
+  padding: 6px var(--gutter) 24px;
+}
+
+.page-title {
+  margin: 4px 0 18px;
+}
+
+/* ------------------------------------------------------------------ top bar: controls only */
+.topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 30;
+  height: var(--chrome-top);
+  padding: env(safe-area-inset-top) 12px 0 var(--gutter);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  pointer-events: none;
+}
+
+.topbar > * {
+  pointer-events: auto;
+}
+
+.topbar-left {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  align-self: stretch;
+}
+
+/* each pane has its own slot (its title, or its controls); the shown pane's slot is visible */
+.topbar-slot {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.topbar-slot:not([data-on]) {
+  visibility: hidden;
+}
+
+.topbar-title {
+  font-size: var(--fs-17);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  opacity: 0;
+  translate: 0 4px;
+  transition: opacity 200ms ease-out, translate 200ms ease-out;
+}
+
+.main[data-titled] .topbar-title {
+  opacity: 1;
+  translate: 0 0;
+}
+
+.tb-group {
+  display: inline-flex;
+  align-items: center;
+  height: 52px;
+  padding: 0 4px;
+  border-radius: var(--r-pill);
+  --lg-tint: var(--lg-tint-bar);
+  --lg-shadow: var(--lg-shadow-sm);
+}
+
+.tb-group .icon-btn {
+  color: var(--lg-ink);
+}
+
+.icon-btn.theme-toggle[aria-pressed='true'] {
+  background: transparent;
+  color: var(--lg-ink);
+}
+
+.theme-toggle .tt {
+  position: relative;
+  display: block;
+  width: 21px;
+  height: 21px;
+}
+
+.theme-toggle .tt svg {
+  position: absolute;
+  inset: 0;
+  width: 21px;
+  height: 21px;
+  transition:
+    transform var(--spring-bouncy-ms, 340ms) var(--spring-bouncy, ease-out),
+    opacity 180ms ease-out;
+}
+
+.theme-toggle[aria-pressed='true'] .tt-sun,
+.theme-toggle[aria-pressed='false'] .tt-moon {
+  transform: rotate(-110deg) scale(0.3);
+  opacity: 0;
+}
+
+/* scroll edge: content fades where it passes under the bars (a gradient, not a second backdrop
+   blur under the bars' glass: glass never stacks, UI brief 2 §2) */
+.edge {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.edge-top {
+  top: 0;
+  height: calc(var(--chrome-top) + 8px);
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--bg) 62%, transparent) 40%, transparent);
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+}
+
+.main[data-scrolled] .edge-top {
+  opacity: 1;
+}
+
+.edge-bottom {
+  bottom: 0;
+  height: calc(40px + env(safe-area-inset-bottom));
+  background: linear-gradient(to top, color-mix(in srgb, var(--bg) 40%, transparent), transparent);
+}
+
+/* ------------------------------------------------------------------ the dock: tab bar + Quick Add (Work OS) */
+.dock {
+  --dock-h: 64px;
+  --bar-pad: 4px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  position: absolute;
+  left: 14px;
+  right: 14px;
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  z-index: 30;
+  pointer-events: none;
+}
+
+.dock > * {
+  pointer-events: auto;
+}
+
+.tabbar {
+  flex: 0 1 auto;
+  width: min(460px, calc(100vw - 28px - var(--dock-h) - 10px));
+  height: var(--dock-h);
+  border-radius: var(--r-pill);
+  --lg-tint: var(--lg-tint-bar);
+  --lg-blur: 2.5px;
+  --lg-shadow: var(--lg-shadow-md);
+}
+
+.tabbar-clip {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+}
+
+.tabbar-track {
+  position: absolute;
+  top: var(--bar-pad);
+  bottom: var(--bar-pad);
+  left: var(--bar-pad);
+  width: calc(min(460px, calc(100vw - 28px - var(--dock-h) - 10px)) - 2 * var(--bar-pad));
+  display: flex;
+  touch-action: none;
+  transition: transform var(--spring-smooth-ms, 360ms) var(--spring-smooth, ease-out);
+}
+
+.tab-pill {
+  --pill-inset: 0px;
+  --pill-rest: color-mix(in srgb, var(--text) 9%, transparent);
+}
+
+.tab-pill::before {
+  box-shadow: none;
+}
+
+.tab {
+  --lensed-scale: 1.1;
+  flex: 1 1 0;
+  min-width: 0;
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border-radius: var(--r-pill);
+  color: var(--lg-ink);
+  font-size: 12px;
+  font-weight: 620;
+  letter-spacing: -0.005em;
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.tab svg {
+  width: 24px;
+  height: 24px;
+  stroke-width: 1.9;
+}
+
+.tab.active {
+  color: var(--accent);
+}
+
+.tab-label {
+  transition: opacity 160ms ease-out;
+}
+
+.quick-fab {
+  width: var(--dock-h);
+  height: var(--dock-h);
+  flex: none;
+  border-radius: var(--r-pill);
+  border: 0;
+  background: transparent;
+  display: grid;
+  place-items: center;
+  margin-left: auto;
+  --lg-shadow: var(--lg-shadow-md);
+}
+
+.quick-fab svg {
+  width: 28px;
+  height: 28px;
+  stroke-width: 2.2;
+}
+
+/* minimized while scrolling down (transform and opacity only, UI brief 2 §2): the bar's glass
+   narrows toward its left end by a scaleX and fades, its tabs fade, and a round capsule with the
+   current tab appears in that spot. Restoring runs it backwards.
+   The bar's glass is three layers (its backdrop, the frosted twin it shows while things move, and
+   its face: glass.css), and the three narrow and fade together. */
+.tabbar {
+  --lg-xf: transform var(--spring-smooth-ms, 360ms) var(--spring-smooth, ease-out);
+}
+
+.tabbar > :is(.lg-bg, .lg-frost, .lg-face) {
+  transform-origin: 0 50%;
+}
+
+.tabbar > .lg-face,
+.tabbar:not([data-freeze]) > .lg-bg {
+  transition:
+    var(--lg-xf),
+    opacity 240ms ease-out;
+}
+
+.tabbar-clip {
+  transition: opacity 160ms ease-out;
+}
+
+.dock[data-min]:has(.tab.active) .tabbar {
+  pointer-events: none;
+}
+
+.dock[data-min]:has(.tab.active) .tabbar > :is(.lg-bg, .lg-frost, .lg-face) {
+  transform: scaleX(var(--min-k, 0.16));
+  opacity: 0;
+}
+
+/* minimized, its backdrops are not drawn at all */
+.dock[data-min]:has(.tab.active) .tabbar > :is(.lg-bg, .lg-frost) {
+  visibility: hidden;
+  backdrop-filter: none;
+  transition:
+    var(--lg-xf),
+    opacity 120ms linear,
+    visibility 0s linear 120ms,
+    backdrop-filter 0s linear 120ms allow-discrete;
+}
+
+.dock[data-min]:has(.tab.active) .tabbar-clip {
+  opacity: 0;
+}
+
+.tabbar-mini {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: var(--dock-h);
+  height: var(--dock-h);
+  border: 0;
+  border-radius: var(--r-pill);
+  background: transparent;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+  visibility: hidden;
+  pointer-events: none;
+  transform: scale(0.7);
+  --lg-tint: var(--lg-tint-bar);
+  --lg-shadow: var(--lg-shadow-md);
+  transition:
+    transform var(--spring-bouncy-ms, 340ms) var(--spring-bouncy, ease-out),
+    scale var(--spring-bouncy-ms, 340ms) var(--spring-bouncy, ease-out),
+    visibility 0s linear 240ms;
+}
+
+.tabbar-mini > .lg-bg,
+.tabbar-mini > svg {
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+}
+
+.tabbar-mini svg {
+  width: 24px;
+  height: 24px;
+  stroke-width: 1.9;
+}
+
+/* the capsule carries every tab's icon and shows the current one (a switch sets data-tab) */
+.tabbar-mini .mini-icon {
+  display: none;
+}
+
+.tabbar-mini[data-tab='today'] .mini-icon[data-tab='today'],
+.tabbar-mini[data-tab='week'] .mini-icon[data-tab='week'],
+.tabbar-mini[data-tab='goals'] .mini-icon[data-tab='goals'],
+.tabbar-mini[data-tab='habits'] .mini-icon[data-tab='habits'],
+.tabbar-mini[data-tab='lists'] .mini-icon[data-tab='lists'] {
+  display: contents;
+}
+
+.dock[data-min]:has(.tab.active) .tabbar-mini {
+  visibility: visible;
+  pointer-events: auto;
+  transform: none;
+  transition:
+    transform var(--spring-bouncy-ms, 340ms) var(--spring-bouncy, ease-out) 60ms,
+    scale var(--spring-bouncy-ms, 340ms) var(--spring-bouncy, ease-out),
+    visibility 0s;
+}
+
+.dock[data-min]:has(.tab.active) .tabbar-mini > .lg-bg,
+.dock[data-min]:has(.tab.active) .tabbar-mini > svg {
+  opacity: 1;
+  transition-delay: 60ms;
+}
+
+/* ------------------------------------------------------------------ the fold's inner screen and desktop: a left glass rail */
+.rail {
+  display: none;
+}
+
+@media (min-width: 700px) {
+  .app {
+    grid-template-columns: 96px minmax(0, 1fr);
+    --chrome-bottom: 32px;
+    --gutter: 28px;
+  }
+  .dock {
+    display: none;
+  }
+  .edge-bottom {
+    display: none;
+  }
+  .rail {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 4px;
+    margin: 12px 0 12px 12px;
+    padding: 10px 8px;
+    border-radius: var(--r-xl);
+    --lg-tint: var(--lg-tint-panel);
+    --lg-blur: 14px;
+    --lg-shadow: var(--lg-shadow-md);
+    z-index: 30;
+  }
+  .rail-track {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .rail-tab {
+    position: relative;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    height: 66px;
+    border-radius: var(--r-lg);
+    color: var(--lg-ink);
+    font-size: 12px;
+    font-weight: 620;
+    text-decoration: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .rail-tab svg {
+    width: 24px;
+    height: 24px;
+    stroke-width: 1.9;
+  }
+  .rail-tab.active {
+    color: var(--accent);
+    background: color-mix(in srgb, var(--surface) 78%, transparent);
+    box-shadow: 0 1px 2px rgba(16, 20, 32, 0.08), inset 0 0 0 0.5px var(--hairline);
+  }
+  :root[data-theme='dark'] .rail-tab.active {
+    background: rgba(255, 255, 255, 0.1);
+  }
+  .rail-quick {
+    margin-top: auto;
+    width: 64px;
+    height: 64px;
+    align-self: center;
+    border: 0;
+    border-radius: var(--r-pill);
+    background: transparent;
+    display: grid;
+    place-items: center;
+    --lg-shadow: var(--lg-shadow-md);
+  }
+  .rail-quick svg {
+    width: 28px;
+    height: 28px;
+    stroke-width: 2.2;
+  }
+  .page {
+    max-width: 1040px;
+  }
+}
+
+/* ------------------------------------------------------------------ auth */
+.auth {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px var(--gutter);
+  background: var(--app-mesh);
+}
+
+.auth-stack {
+  width: min(420px, 100%);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+/* the plain-http banner (product brief 10 §2): content, on a solid card above the form */
+.auth-notice {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.auth-notice p {
+  color: var(--text-2);
+}
+
+.auth-notice strong {
+  color: var(--text);
+}
+
+.auth-notice-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.auth-notice-actions a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.auth-card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.auth-card h1 {
+  font-size: var(--fs-32);
+}
+
+.auth-card p {
+  color: var(--text-2);
+}
+
+/* the first-run step (ADR-76): the passphrase card's shape, a little wider for the city list */
+.setup {
+  align-items: start;
+  padding-top: max(28px, env(safe-area-inset-top));
+}
+
+.setup-card {
+  width: min(460px, 100%);
+}
+
+.setup-card .setup-step {
+  margin-bottom: -10px;
+  font-size: var(--fs-13);
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  color: var(--text-3);
+}
+
+.setup-card .switch {
+  padding: 4px 0;
+}
+
+.setup-card .setting-row.setting-stack {
+  padding: 0;
+}
+
+
+.setup-card .setup-check-ok {
+  color: var(--ok);
+  font-size: var(--fs-15);
+}
+
+/* a place: the city search with its results, or coordinates and a zone */
+.place-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.place-results {
+  display: flex;
+  flex-direction: column;
+  margin: -4px 0 0;
+  padding: 4px;
+  list-style: none;
+  border-radius: var(--r-lg);
+  background: var(--surface-sunken);
+  box-shadow: inset 0 0 0 0.5px var(--hairline);
+}
+
+.place-results > li.caption {
+  padding: 10px 12px;
+}
+
+.place-result,
+.place-suggest {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: var(--tap);
+  padding: 8px 12px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.place-result:active,
+.place-suggest:active {
+  background: var(--press);
+}
+
+.place-result > span,
+.place-suggest > span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.place-result > svg,
+.place-suggest > svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--text-3);
+}
+
+.place-result-name {
+  font-size: var(--fs-17);
+}
+
+.place-suggest {
+  background: var(--accent-soft);
+}
+
+.place-chosen {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--tap);
+  padding: 8px 14px;
+  border-radius: var(--r-md);
+  background: var(--ok-soft);
+  font-size: var(--fs-17);
+}
+
+.place-chosen > span {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.place-chosen-detail {
+  font-variant-numeric: tabular-nums;
+}
+
+.place-chosen > svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--ok);
+}
+
+.place-coords {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.place-switch {
+  align-self: flex-start;
+  margin-left: -12px;
+}
+
+/* a screen that puts its own control in the top bar keeps the bar for it */
+.topbar-slot:has(.tb-group, .segmented) .topbar-title {
+  display: none;
+}
+
+/* a phone's top bar holds a screen's switch beside three buttons (Privacy mode's eye, the sun/moon,
+   the gear; round-2 brief §6): the switch's options sit a little closer there */
+@media (max-width: 699px) {
+  .topbar {
+    gap: 8px;
+    padding-left: 16px;
+  }
+  .topbar-slot .segmented.on-glass .seg-item {
+    padding: 0 9px;
+    font-size: var(--fs-14);
+  }
+}
+
+/* a phone under 400 px (round-3 brief §5; `data-narrow` is set once at start, lib/viewport.ts):
+   Today's moment switch is an icon over a short label in three equal segments, the Calendar's
+   switch sits tighter, and the bar's gaps close a little; the eye, the sun/moon and the gear stay */
+:root[data-narrow] .topbar {
+  gap: 6px;
+  padding-left: 12px;
+  padding-right: 10px;
+}
+
+:root[data-narrow] .topbar-slot .segmented.on-glass .seg-item {
+  padding: 0 8px;
+}
+
+:root[data-narrow] .topbar-slot .segmented-compact.on-glass .seg-item {
+  flex: 1 1 0;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 50px;
+  padding: 0 4px;
+  font-size: 12px;
+  line-height: 1.1;
+}
+
+:root[data-narrow] .topbar-slot .segmented-compact .seg-item svg {
+  width: 17px;
+  height: 17px;
+}

@@ -1,0 +1,136 @@
+# LifeOS (portable edition): three containers built from ./src, your notes folder mounted at /vault.
+#
+# Dockge / NAS: copy this folder to your stacks directory, set LIFEOS_VAULT_HOST, LIFEOS_BIND=0.0.0.0
+# and LIFEOS_UID/GID in the .env editor, Deploy. The first build takes a few minutes; then open
+# http://<nas-ip>:8480/lifeos . No installer and no shell: on the first start the stack makes its own
+# secrets and puts the starter notes in an empty notes folder. README.md: "Install on a NAS".
+#
+# On a computer, ./install.sh (or install.ps1) asks the same questions. Afterwards:
+#   docker compose -p lifeos up -d   (start, or apply .env changes)    docker compose -p lifeos stop
+# Everything you would change is in .env; optional secrets in .env.ai and .env.telegram beside it.
+name: ${LIFEOS_NAME:-lifeos}
+
+services:
+  api:
+    build:
+      context: ./src
+      dockerfile: docker/Dockerfile
+      target: api
+      args:
+        LIFEOS_BUILD: ${LIFEOS_BUILD:-dev}
+    image: ${LIFEOS_NAME:-lifeos}-api:local
+    # built here, never pulled: a compose pull skips it and every `up` rebuilds it from the source
+    # (cached: seconds when nothing changed), so Dockge's Update applies a new src/ (product brief 10)
+    pull_policy: build
+    container_name: ${LIFEOS_NAME:-lifeos}-api
+    # the notes' owner (LIFEOS_UID/GID), so files written in the vault stay theirs
+    user: "${LIFEOS_UID:-1000}:${LIFEOS_GID:-1000}"
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-UTC}
+      LIFEOS_VAULT: /vault
+      LIFEOS_DATA: /data
+      LIFEOS_AUTH_FILE: /auth/.env.auth
+      LIFEOS_MODE: ${LIFEOS_MODE:-live}
+      LIFEOS_TELEGRAM: ${LIFEOS_TELEGRAM:-on}
+      LIFEOS_AI: ${LIFEOS_AI:-on}
+      LIFEOS_PUBLIC_URL: ${LIFEOS_PUBLIC_URL:-http://localhost:${LIFEOS_PORT:-8480}/lifeos}
+      LIFEOS_SEARXNG_URL: http://lifeos-searxng:8080
+      LIFEOS_SETUP_SEED: ${LIFEOS_SETUP_SEED:-}
+      # the Hermes prompt names this container, its network and the published port (ADR-88)
+      LIFEOS_NAME: ${LIFEOS_NAME:-lifeos}
+      LIFEOS_PORT: ${LIFEOS_PORT:-8480}
+      # 0.0.0.0: the app says once that plain http cannot install it or notify (product brief 10 §2)
+      LIFEOS_BIND: ${LIFEOS_BIND:-127.0.0.1}
+      LIFEOS_STARTER: ${LIFEOS_STARTER:-on}
+    env_file:
+      # the model endpoint (.env.ai; an older .env.gsq still works), Telegram, browser notifications
+      - path: ${LIFEOS_ENV_AI:-.env.ai}
+        required: false
+      - path: ${LIFEOS_ENV_GSQ:-.env.gsq}
+        required: false
+      - path: ${LIFEOS_ENV_TELEGRAM:-.env.telegram}
+        required: false
+      - path: ${LIFEOS_ENV_PUSH:-.env.push}
+        required: false
+    volumes:
+      - ${LIFEOS_VAULT_HOST:?set it in .env (in Dockge, the .env panel) to your notes folder, for example /DATA/Documents/Notes (an empty folder gets the starter notes)}:/vault:rw
+      - data:/data
+      # the passphrase file (.env.auth): in the data volume, or in LIFEOS_AUTH_DIR when it is set
+      - ${LIFEOS_AUTH_DIR:-data}:/auth:rw
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    networks:
+      default:
+        aliases: [lifeos-api]
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:8481/api/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+
+  web:
+    build:
+      context: ./src
+      dockerfile: docker/Dockerfile
+      target: web
+      args:
+        LIFEOS_BUILD: ${LIFEOS_BUILD:-dev}
+    image: ${LIFEOS_NAME:-lifeos}-web:local
+    # built here, never pulled (see api)
+    pull_policy: build
+    container_name: ${LIFEOS_NAME:-lifeos}-web
+    restart: unless-stopped
+    ports:
+      - "${LIFEOS_BIND:-127.0.0.1}:${LIFEOS_PORT:-8480}:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 4s
+      retries: 6
+      start_period: 5s
+
+  searxng:
+    image: searxng/searxng:2026.10.19-81371861f
+    container_name: ${LIFEOS_NAME:-lifeos}-searxng
+    user: "977:977"
+    restart: unless-stopped
+    # its secret: SEARXNG_SECRET from .env.searxng, else made on the first start and kept in
+    # searxng-etc (docker/searxng/start.sh), then the image's own entrypoint
+    entrypoint: ["/bin/sh", "/lifeos/start.sh"]
+    environment:
+      SEARXNG_SETTINGS_PATH: /lifeos/settings.yml
+      __SEARXNG_SETTINGS_PATH: /lifeos/settings.yml
+      FORCE_OWNERSHIP: "false"
+    env_file:
+      - path: .env.searxng
+        required: false
+    volumes:
+      - ./src/docker/searxng:/lifeos:ro
+      - searxng-etc:/etc/searxng
+      - searxng-cache:/var/cache/searxng
+    networks:
+      default:
+        aliases: [lifeos-searxng]
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost:8080/healthz"]
+      interval: 15s
+      timeout: 5s
+      retries: 8
+      start_period: 15s
+
+volumes:
+  data:
+    name: ${LIFEOS_DATA_VOLUME:-${LIFEOS_NAME:-lifeos}-data}
+  searxng-etc:
+    name: ${LIFEOS_NAME:-lifeos}-searxng-etc
+  searxng-cache:
+    name: ${LIFEOS_NAME:-lifeos}-searxng-cache
+
+networks:
+  default:
+    name: ${LIFEOS_NAME:-lifeos}-net

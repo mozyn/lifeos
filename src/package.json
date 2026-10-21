@@ -1,0 +1,12 @@
+{
+  "name": "lifeos",
+  "private": true,
+  "type": "module",
+  "workspaces": ["packages/shared", "apps/api", "apps/web"],
+  "scripts": {
+    "build": "npm run build -w @lifeos/shared && npm run build -w @lifeos/api && npm run build -w @lifeos/web",
+    "test": "npm run test -w @lifeos/shared && npm run test -w @lifeos/api && npm run test -w @lifeos/web",
+    "typecheck": "npm run build -w @lifeos/shared && npm run typecheck -w @lifeos/api && npm run typecheck -w @lifeos/web"
+  },
+  "engines": { "node": ">=22" }
+}

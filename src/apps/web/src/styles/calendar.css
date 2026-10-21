@@ -1,0 +1,748 @@
+/* ------------------------------------------------------------------ Calendar (round-2 brief §3, §4)
+   Day, Week and Month share one header (title, Hijri, prev / Today / next) and one primary action
+   (Add event). Content sits on solid cards; the only glass is the view switch in the top bar. */
+
+.cal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 2px 2px 14px;
+}
+
+.cal-title {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.cal-title h1 {
+  font-size: var(--fs-26);
+  font-weight: 720;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.cal-title .secondary {
+  font-size: var(--fs-15);
+}
+
+.cal-nav {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 0;
+  margin: 2px -10px 0 0;
+}
+
+.cal-sub {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 12px;
+  min-height: 24px;
+}
+
+/* back to the current day, week or month: only shown away from it */
+.cal-today {
+  min-height: var(--tap);
+  margin: -10px 0;
+  font-size: var(--fs-15);
+}
+
+/* the views stay mounted in one grid cell (lib/segments.ts) */
+.cal-body {
+  display: grid;
+}
+
+/* ------------------------------------------------------------------ Day */
+.cal-day {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  /* a finger moving sideways changes the day; up and down still scroll */
+  touch-action: pan-y;
+}
+
+.cal-day > .card + .card {
+  margin-top: 0;
+}
+
+.goal-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.goal-chip {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: baseline;
+  gap: 2px 10px;
+  min-height: var(--tap);
+  padding: 8px 14px 9px;
+  border: 0;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--card-shadow);
+  color: var(--text);
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.goal-chip:active {
+  background: var(--surface-sunken);
+}
+
+.goal-chip-title {
+  font-size: var(--fs-15);
+  font-weight: 600;
+}
+
+.goal-chip-n {
+  font-size: var(--fs-13);
+  color: var(--ok);
+  font-weight: 650;
+}
+
+.goal-chip-bar {
+  grid-column: 1 / -1;
+  height: 4px;
+  border-radius: var(--r-xs);
+  background: var(--ok-soft);
+  overflow: hidden;
+}
+
+.goal-chip-bar > span {
+  display: block;
+  height: 100%;
+  background: var(--ok-fill);
+  transform-origin: left;
+}
+
+.tl-allday {
+  list-style: none;
+  margin: 0 0 6px;
+  padding: 0;
+}
+
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  position: relative;
+}
+
+/* the day's line: a hairline down the dot column */
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 83px;
+  top: 14px;
+  bottom: 14px;
+  width: 1.5px;
+  background: var(--hairline-strong);
+}
+
+.timeline li,
+.tl-allday li {
+  position: relative;
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  column-gap: 26px;
+  align-items: baseline;
+  min-height: 40px;
+  padding: 8px 0;
+}
+
+.timeline li::before {
+  content: '';
+  position: absolute;
+  left: 79px;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  margin-top: -5px;
+  border-radius: 50%;
+  background: var(--surface);
+  box-shadow: inset 0 0 0 2px var(--text-3);
+}
+
+.tl-time {
+  font-size: var(--fs-15);
+  font-weight: 600;
+  color: var(--text-2);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.tl-text {
+  font-size: var(--fs-17);
+  overflow-wrap: anywhere;
+}
+
+.tl-prayer .tl-text {
+  color: var(--text-2);
+  font-weight: 560;
+}
+
+.tl-prayer.passed .tl-time,
+.tl-prayer.passed .tl-text {
+  color: var(--text-3);
+}
+
+.tl-event::before {
+  background: var(--accent) !important;
+  box-shadow: none !important;
+}
+
+.tl-event .tl-time {
+  color: var(--accent);
+}
+
+.tl-event .tl-text {
+  font-weight: 600;
+}
+
+.tl-now {
+  min-height: 28px !important;
+  padding: 2px 0 !important;
+}
+
+.tl-now::before {
+  background: var(--crit-fill) !important;
+  box-shadow: 0 0 0 3px var(--crit-soft) !important;
+}
+
+.tl-now .tl-time,
+.tl-now .tl-text {
+  font-size: var(--fs-13);
+  font-weight: 650;
+  color: var(--crit);
+}
+
+.tl-allday .tl-time {
+  color: var(--accent);
+  font-size: var(--fs-13);
+  font-weight: 650;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.habit-day-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.habit-day-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: var(--tap);
+  font-size: var(--fs-17);
+}
+
+.habit-day-list li > .curtain-body {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.habit-day-list li + li {
+  position: relative;
+}
+
+.habit-day-list li + li::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 0.5px;
+  background: var(--hairline);
+  pointer-events: none;
+}
+
+.cal-hint {
+  text-align: center;
+  margin-top: 2px;
+}
+
+/* ------------------------------------------------------------------ the streak mark (flame) */
+.day-mark {
+  flex: none;
+  display: inline-grid;
+  place-items: center;
+  width: var(--tap);
+  height: var(--tap);
+  margin: -10px -6px -10px 0;
+  border: 0;
+  border-radius: var(--r-pill);
+  background: transparent;
+  color: var(--warn-fill);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.day-mark:active {
+  background: var(--press);
+}
+
+.day-mark svg {
+  width: 20px;
+  height: 20px;
+  fill: currentColor;
+  stroke-width: 1.6;
+}
+
+/* a slip: the same shape, muted and hollow */
+.day-mark[data-mark='slip'] {
+  color: var(--text-3);
+}
+
+.day-mark[data-mark='slip'] svg {
+  fill: none;
+}
+
+.day-mark.compact {
+  width: 36px;
+  height: 36px;
+  margin: 0;
+}
+
+.wk-head h2 {
+  flex: 1;
+  min-width: 0;
+}
+
+.wk-open,
+.wk-col-open {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.wk-open {
+  min-height: 32px;
+}
+
+.wk-col-open {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 100%;
+}
+
+/* ------------------------------------------------------------------ Month */
+.month-card {
+  padding: 12px 8px 10px;
+}
+
+.mg {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 2px;
+}
+
+.mg-dow {
+  text-align: center;
+  font-size: var(--fs-13);
+  font-weight: 650;
+  color: var(--text-3);
+  padding: 2px 0 6px;
+}
+
+.mc,
+.mc-blank {
+  aspect-ratio: 1 / 1.08;
+  min-height: var(--tap);
+}
+
+.mc {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  gap: 1px;
+  padding: 6px 0 0;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mc:active {
+  background: var(--press);
+}
+
+.mc.is-past .mc-n {
+  color: var(--text-2);
+}
+
+.mc-n {
+  font-size: var(--fs-17);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.mc-h {
+  font-size: 11px;
+  line-height: 1.1;
+  color: var(--text-3);
+}
+
+/* today: a ring around the day */
+.mc.is-today {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.mc.is-today .mc-n {
+  color: var(--accent);
+  font-weight: 750;
+}
+
+.mc-dots {
+  display: flex;
+  gap: 3px;
+  height: 6px;
+  margin-top: auto;
+  margin-bottom: 7px;
+}
+
+.dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.dot-event {
+  background: var(--accent);
+}
+
+.dot-task {
+  background: var(--warn-fill);
+}
+
+.dot-habit {
+  background: var(--ok-fill);
+}
+
+.mc-mark {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  display: inline-grid;
+  color: var(--warn-fill);
+  line-height: 0;
+}
+
+.mc-mark svg {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
+  stroke-width: 1.6;
+}
+
+.mc-mark[data-mark='slip'] {
+  color: var(--text-3);
+}
+
+.mc-mark[data-mark='slip'] svg {
+  fill: none;
+}
+
+.month-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 6px;
+  margin: 10px 4px 0;
+}
+
+.month-legend .dot {
+  margin-left: 6px;
+}
+
+.month-legend .mc-mark {
+  position: static;
+  margin-left: 6px;
+}
+
+/* the day's popover (round-3 brief §2): glass on the control layer, anchored to its day; corners
+   concentric with its 12 px inset (rows lg - 12, the action a pill) */
+.cal-month {
+  position: relative;
+}
+
+.mc.is-open {
+  background: var(--press);
+}
+
+.day-pop {
+  position: absolute;
+  z-index: 20;
+  width: min(300px, calc(100% - 16px));
+  padding: 12px;
+  border-radius: var(--r-lg);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  /* glass in a pane's content draws no backdrop at Balanced (glass.css rule 1), and the month's
+     days sit right under its words: the theme's solid popover face, the glass rim and shadow kept */
+  --lg-tint: var(--solid-pop);
+  animation: day-pop-in 200ms var(--ease) both;
+}
+
+@keyframes day-pop-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+}
+
+.dp-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 2px 4px 0;
+}
+
+.dp-title {
+  font-weight: 700;
+  font-size: var(--fs-17);
+}
+
+.dp-empty {
+  margin: 0;
+  padding: 4px;
+}
+
+.dp-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dp-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-height: 32px;
+  padding: 6px 8px;
+  border-radius: calc(var(--r-lg) - 12px);
+  background: var(--surface-2);
+  font-size: var(--fs-15);
+  line-height: 1.3;
+}
+
+.dp-list li.dp-more {
+  background: none;
+  min-height: 0;
+  padding: 0 8px;
+}
+
+.dp-when {
+  flex: none;
+  min-width: 4.6em;
+  color: var(--text-2);
+  font-size: var(--fs-13);
+}
+
+.dp-text {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.dp-list .tag {
+  flex: none;
+}
+
+.dp-tick {
+  flex: none;
+  align-self: center;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--warn-fill);
+}
+
+.dp-list li[data-done] .dp-tick {
+  background: var(--ok-fill);
+  box-shadow: none;
+}
+
+.dp-list li[data-done] .dp-text {
+  color: var(--text-2);
+  text-decoration: line-through;
+}
+
+.dp-hidden {
+  margin: 0;
+  padding: 0 4px;
+}
+
+.dp-open {
+  margin-top: 2px;
+}
+
+@media (min-width: 700px) {
+  .cal-title h1 {
+    font-size: var(--fs-32);
+  }
+  .mg {
+    gap: 6px;
+  }
+  .mc {
+    aspect-ratio: 1 / 0.8;
+  }
+  .mc-n {
+    font-size: var(--fs-19);
+  }
+}
+
+/* ------------------------------------------------------------------ Today's arc at night, dawn and dusk (round-2 brief §2)
+   still SVG; the tint and the sun's glow are washes, so reduced transparency leaves them out */
+.arc-star {
+  fill: color-mix(in srgb, var(--text) 38%, transparent);
+}
+
+:root[data-theme='dark'] .arc-star {
+  fill: color-mix(in srgb, #fff 72%, transparent);
+}
+
+.arc-moon-dark {
+  fill: color-mix(in srgb, var(--text) 10%, var(--bg));
+  stroke: color-mix(in srgb, var(--text) 22%, transparent);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.arc-moon {
+  fill: #e9e3cf;
+  stroke: color-mix(in srgb, #8a7f5c 55%, transparent);
+  stroke-width: 0.8;
+  vector-effect: non-scaling-stroke;
+}
+
+:root[data-theme='dark'] .arc-moon {
+  fill: #f4efdc;
+  stroke: none;
+}
+
+:root[data-theme='dark'] .arc-moon-dark {
+  fill: #23252c;
+  stroke: rgba(255, 255, 255, 0.16);
+}
+
+/* the tint's stops keep one colour each and fade by opacity (a fade toward "transparent" would
+   pass through grey) */
+.arc-tint-core.dawn,
+.arc-tint-mid.dawn,
+.arc-tint-edge.dawn {
+  stop-color: #ff9f80;
+}
+
+.arc-tint-core.dusk,
+.arc-tint-mid.dusk,
+.arc-tint-edge.dusk {
+  stop-color: #ff8a3d;
+}
+
+.arc-tint-core {
+  stop-opacity: 0.42;
+}
+
+.arc-tint-mid {
+  stop-opacity: 0.16;
+}
+
+.arc-tint-edge {
+  stop-opacity: 0;
+}
+
+:root[data-theme='dark'] .arc-tint-core.dawn,
+:root[data-theme='dark'] .arc-tint-mid.dawn,
+:root[data-theme='dark'] .arc-tint-edge.dawn {
+  stop-color: #d8708c;
+}
+
+:root[data-theme='dark'] .arc-tint-core.dusk,
+:root[data-theme='dark'] .arc-tint-mid.dusk,
+:root[data-theme='dark'] .arc-tint-edge.dusk {
+  stop-color: #e0703a;
+}
+
+:root[data-theme='dark'] .arc-tint-core {
+  stop-opacity: 0.38;
+}
+
+/* the arc's line takes the night's colour after Maghrib */
+.arc.is-night .arc-past {
+  stroke: color-mix(in srgb, var(--accent) 70%, var(--text-3));
+}
+
+:root[data-glass='solid'] .arc-tint,
+:root[data-glass='solid'] .arc-sun-glow {
+  display: none;
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .arc-tint,
+  .arc-sun-glow {
+    display: none;
+  }
+}
+
+/* events edit in place (round-2 brief §12): the entry is a button; the grid moves onto it */
+.timeline li.swipe,
+.tl-allday li.swipe {
+  display: block;
+  padding: 0;
+}
+
+.timeline .ev-open,
+.tl-allday .ev-open {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  column-gap: 26px;
+  align-items: baseline;
+  min-height: 40px;
+  padding: 8px 0;
+}
+
+.wk-events li.swipe {
+  display: block;
+}
+
+.wk-events .ev-open {
+  display: grid;
+  grid-template-columns: 76px 1fr;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.wk-chip.swipe {
+  padding: 0;
+}
+
+.wk-chip .ev-open {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 7px;
+}

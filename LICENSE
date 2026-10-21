@@ -1,0 +1,17 @@
+LifeOS: personal use, share freely, no warranty.
+
+You may use LifeOS for yourself and your family, copy it, and give copies to anyone, for free,
+as long as this notice comes with every copy. You may change it for your own use.
+
+LifeOS comes with no warranty of any kind. Keep backups of your notes. The author is not liable
+for any loss or damage from using it.
+
+Included and used third-party material:
+- City list (apps/web/src/lib/cities-data.json): GeoNames, https://www.geonames.org, licensed
+  under Creative Commons Attribution 4.0 (CC BY 4.0).
+- Hadith library (src/fixtures/starter-vault/Resources/hadith-library): texts imported from the open-source
+  Thaqalayn API (https://www.thaqalayn-api.net), which publishes them from thaqalayn.net. They are
+  included verbatim with their book, reference and grading; their use follows those sources' terms.
+- Prayer times: adhan-js (MIT). Search: SearXNG (AGPL-3.0), run from its official Docker image.
+- The program's other open-source libraries are fetched when LifeOS is built; each keeps its own
+  license (see src/package-lock.json for the list).

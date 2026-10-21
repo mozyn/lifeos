@@ -1,0 +1,2187 @@
+/* ------------------------------------------------------------------ Today */
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+.stack > .card + .card,
+.today-moment > .card + .card {
+  margin-top: 0;
+}
+
+.day-head {
+  padding: 2px 2px 18px;
+}
+
+.hijri {
+  font-size: var(--fs-15);
+  font-weight: 560;
+  color: var(--text-3-bg);
+  letter-spacing: 0.005em;
+}
+
+.day-date {
+  margin-top: 2px;
+  font-size: var(--fs-32);
+  font-weight: 720;
+  letter-spacing: -0.026em;
+}
+
+.day-arc {
+  margin-top: 14px;
+}
+
+.arc {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.arc-horizon {
+  stroke: color-mix(in srgb, var(--text) 16%, transparent);
+  stroke-width: 1;
+  stroke-dasharray: 2 5;
+  vector-effect: non-scaling-stroke;
+}
+
+.arc-past,
+.arc-future {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.arc-past {
+  stroke: var(--accent);
+  stroke-width: 2.5;
+}
+
+.arc-future {
+  stroke: color-mix(in srgb, var(--text) 28%, transparent);
+  stroke-width: 1.5;
+  stroke-dasharray: 1 5;
+}
+
+.arc-dot {
+  fill: var(--bg);
+  stroke: color-mix(in srgb, var(--text) 45%, transparent);
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.arc-dot.passed {
+  fill: color-mix(in srgb, var(--text) 45%, transparent);
+  stroke: none;
+}
+
+.arc-dot.next {
+  fill: var(--accent);
+  stroke: var(--bg);
+  stroke-width: 2;
+}
+
+.arc-sun {
+  fill: var(--warn-fill);
+  stroke: color-mix(in srgb, #fff 70%, var(--warn-fill));
+  stroke-width: 1.5;
+  vector-effect: non-scaling-stroke;
+}
+
+.arc-sun-glow {
+  fill: color-mix(in srgb, var(--warn-fill) 26%, transparent);
+}
+
+.arc-labels {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  margin: 8px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.arc-labels li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  color: var(--text-2);
+}
+
+.arc-name {
+  font-size: var(--fs-13);
+  font-weight: 560;
+  color: var(--text-3-bg);
+}
+
+.arc-time {
+  font-size: var(--fs-15);
+  font-weight: 600;
+}
+
+.arc-labels li.passed .arc-time {
+  color: var(--text-3-bg);
+  font-weight: 500;
+}
+
+.arc-labels li.next .arc-name,
+.arc-labels li.next .arc-time {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.next-prayer {
+  margin-top: 12px;
+  font-size: var(--fs-17);
+  font-weight: 650;
+}
+
+.next-prayer .secondary {
+  font-weight: 450;
+  color: var(--text-3-bg);
+}
+
+/* the plan: once approved, a sentence on the page itself, not another card */
+.plan-line {
+  padding: 2px 2px 6px;
+}
+
+.plan-headline {
+  font-size: var(--fs-22);
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  line-height: 1.28;
+  text-wrap: balance;
+}
+
+.small-headline {
+  font-size: var(--fs-19);
+}
+
+.plan-focus {
+  margin: 10px 0 0;
+  padding-left: 1.1em;
+  color: var(--text-2);
+  font-size: var(--fs-17);
+}
+
+.plan-focus li + li {
+  margin-top: 4px;
+}
+
+.plan-focus .tag {
+  margin-left: 6px;
+}
+
+.draft-meta {
+  margin-top: 12px;
+}
+
+.draft-meta-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 32px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-3);
+  font-size: var(--fs-13);
+  font-weight: 520;
+}
+
+.draft-detail {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 4px 12px;
+  margin: 6px 0 0;
+  font-size: var(--fs-13);
+  color: var(--text-2);
+}
+
+.draft-detail dt {
+  color: var(--text-3);
+}
+
+.draft-detail dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.edit-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* check-in */
+.ci-rows {
+  display: flex;
+  flex-direction: column;
+  margin: 0 -6px;
+}
+
+
+.ci-summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  min-height: 50px;
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+  font-size: var(--fs-17);
+  text-align: left;
+  border-radius: var(--r-sm);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ci-value {
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+}
+
+.ci-picks {
+  padding: 2px 6px 14px;
+}
+
+.ci-scale {
+  flex-basis: 100%;
+}
+
+/* the chip strip: glass controls that open other tabs */
+.strip {
+  padding: 2px 0;
+}
+
+.chip.changed {
+  align-self: flex-start;
+}
+
+/* midday */
+.progress {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+
+.ring {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  flex: none;
+}
+
+.ring svg {
+  width: 100%;
+  height: 100%;
+  rotate: -90deg;
+}
+
+.ring-track {
+  fill: none;
+  stroke: var(--surface-sunken);
+  stroke-width: 10;
+}
+
+.ring-fill {
+  fill: none;
+  stroke: var(--ok-fill);
+  stroke-width: 10;
+  stroke-linecap: round;
+}
+
+.ring-text {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.ring-n {
+  font-size: var(--fs-32);
+  font-weight: 750;
+  line-height: 1;
+}
+
+.ring-of {
+  font-size: var(--fs-15);
+  color: var(--text-3);
+}
+
+.counters {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+}
+
+.counters dt {
+  font-size: var(--fs-15);
+  color: var(--text-3);
+}
+
+.counters dd {
+  margin: 0;
+  font-size: var(--fs-22);
+  font-weight: 700;
+}
+
+.next-event {
+  margin: -2px 0 6px;
+  color: var(--text-2);
+  font-size: var(--fs-15);
+}
+
+/* the next event is the event (round-3 brief §4): tap to edit it, swipe, hold */
+.next-event .ev-open {
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+}
+
+/* evening */
+.review-stats {
+  display: flex;
+  gap: 10px;
+}
+
+.stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0;
+  padding: 10px 14px;
+  border: 0;
+  border-radius: var(--r-lg);
+  background: var(--surface-sunken);
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.stat-n {
+  font-size: var(--fs-32);
+  font-weight: 750;
+  line-height: 1.1;
+}
+
+.stat-n.warn {
+  color: var(--crit);
+}
+
+.stat-l {
+  font-size: var(--fs-15);
+  color: var(--text-2);
+}
+
+.review .rows {
+  margin-top: 8px;
+}
+
+.review-habits {
+  display: flex;
+  flex-direction: column;
+  margin-top: 12px;
+}
+
+.habit-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 56px;
+}
+
+.habit-row > .curtain-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+
+
+.habit-name {
+  flex: 1;
+  font-size: var(--fs-17);
+  min-width: 0;
+}
+
+.habit-row .picks {
+  flex: none;
+  flex-wrap: nowrap;
+}
+
+.review-text {
+  margin-top: 12px;
+  color: var(--text-2);
+  font-size: var(--fs-15);
+}
+
+.events-mini {
+  list-style: none;
+  margin: 14px 0 0;
+  padding: 12px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.events-mini .ev-open {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: var(--tap);
+}
+
+.ev-when {
+  font-size: var(--fs-13);
+  color: var(--text-3);
+  font-weight: 560;
+}
+
+.capture-row {
+  width: 100%;
+  align-items: center;
+}
+
+.capture-row .chev {
+  flex: none;
+  color: var(--text-3);
+}
+
+.transcript {
+  margin: 0;
+  padding: 12px 16px;
+  border-radius: var(--r-md);
+  background: color-mix(in srgb, var(--surface-sunken) 80%, transparent);
+  color: var(--text);
+  font-size: var(--fs-17);
+  white-space: pre-wrap;
+}
+
+.field-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.capture-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.session-done {
+  background: color-mix(in srgb, var(--ok-fill) 14%, var(--surface));
+}
+
+.session-done h2 {
+  color: var(--ok);
+}
+
+/* the fold's inner screen: two panes, never more */
+.today-panes {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(250px, 300px);
+  gap: 20px;
+  align-items: start;
+}
+
+.pane-main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+.pane-main > .card + .card {
+  margin-top: 0;
+}
+
+.pane-side {
+  position: sticky;
+  top: 0;
+}
+
+.ws-days {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+
+
+.ws-day {
+  display: flex;
+  gap: 12px;
+  width: 100%;
+  padding: 2px 0;
+  align-items: flex-start;
+}
+
+/* the day's name opens it in the Calendar; its events edit in place (round-3 brief §4) */
+.ws-date {
+  flex: none;
+  width: 92px;
+  min-height: var(--tap);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  font: inherit;
+  font-size: var(--fs-15);
+  font-weight: 650;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.ws-evs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ws-ev .ev-open {
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.is-today .ws-date {
+  color: var(--accent);
+}
+
+.ws-items {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  font-size: var(--fs-15);
+}
+
+.ws-items > .muted {
+  min-height: var(--tap);
+  display: flex;
+  align-items: center;
+}
+
+.ws-ev {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ws-tasks {
+  min-height: var(--tap);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font: inherit;
+  color: var(--text-3);
+  font-size: var(--fs-13);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.skeleton {
+  height: 60vh;
+  border-radius: var(--r-card);
+  background: linear-gradient(90deg, var(--surface-2), var(--surface), var(--surface-2));
+  background-size: 200% 100%;
+  opacity: 0.6;
+}
+
+@media (min-width: 700px) {
+  .day-head {
+    max-width: 640px;
+  }
+}
+
+/* ------------------------------------------------------------------ the AI provider (ADR-81) */
+.provider-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.provider-list {
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+  border-radius: var(--r-lg);
+  background: var(--surface-sunken);
+  box-shadow: inset 0 0 0 0.5px var(--hairline);
+}
+
+.provider-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  min-height: var(--tap);
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.provider-option[data-checked] {
+  background: var(--surface);
+  box-shadow: 0 0 0 0.5px var(--hairline-strong), 0 1px 3px rgb(0 0 0 / 0.06);
+}
+
+.provider-option > input {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin: 2px 0 0;
+  accent-color: var(--accent);
+}
+
+.provider-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.provider-label {
+  font-size: var(--fs-17);
+}
+
+.provider-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: var(--fs-13);
+  font-weight: 600;
+  color: var(--ok);
+}
+
+.provider-badge > svg {
+  width: 15px;
+  height: 15px;
+}
+
+.provider-inputs {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* the warning whenever prompts would leave this machine */
+.provider-warning,
+.cloud-gate {
+  display: flex;
+  gap: 10px;
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: var(--r-md);
+  background: var(--warn-soft);
+  color: var(--text);
+  font-size: var(--fs-15);
+  line-height: 1.4;
+}
+
+.provider-warning > svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  color: var(--warn);
+}
+
+.cloud-gate {
+  flex-direction: column;
+  gap: 6px;
+  margin: 10px 0 4px;
+}
+
+.cloud-gate-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 650;
+}
+
+.cloud-gate-title > svg {
+  width: 20px;
+  height: 20px;
+  color: var(--warn);
+}
+
+.cloud-gate .caption {
+  color: var(--text-2);
+}
+
+.privacy-cloud {
+  padding: 0 0 12px;
+  color: var(--warn);
+}
+
+.setup-ai {
+  gap: 8px;
+}
+
+/* ------------------------------------------------------------------ settings */
+.settings-section {
+  margin-bottom: 22px;
+  /* a link to a section (?s=prayer) lands it below the floating top bar, not under it */
+  scroll-margin-top: calc(var(--chrome-top) + 8px);
+}
+
+.settings-section > :is(h2, h3) {
+  margin: 0 4px 8px;
+  font-size: var(--fs-15);
+  font-weight: 650;
+  color: var(--text-3-bg);
+}
+
+/* round-4 brief §4: one section per group, a solid face under a glass rim and sheen (glass in a
+   pane's content draws no backdrop at Balanced, ADR-41, and rows must read on any theme), nested
+   corners concentric with its 26 px; its rows are separated by lines */
+.settings-card {
+  padding: 4px 18px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--lg-sheen, transparent) 55%, transparent), transparent 56px), var(--surface);
+  box-shadow: inset 0 0.5px 0 var(--lg-rim-hi, transparent), inset 0 0 0 0.5px var(--hairline), var(--card-shadow);
+}
+
+:root[data-glass='solid'] .settings-card {
+  background: var(--surface);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+}
+
+.settings-card :is(.setting-row, .switch, .disclosure, .setting-block):not(:first-child) {
+  position: relative;
+}
+
+.settings-card :is(.setting-row, .switch, .disclosure, .setting-block):not(:first-child)::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 0.5px;
+  background: var(--hairline);
+  pointer-events: none;
+}
+
+.setting-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-bottom: 12px;
+}
+
+.setting-block > .card-foot {
+  margin-top: 4px;
+}
+
+.setting-block > .caption {
+  margin: 0;
+}
+
+.setting-block > .setting-row + .caption {
+  margin-top: -6px;
+}
+
+/* a row that is a link (About → the plan) */
+.setting-link {
+  color: var(--text);
+  text-decoration: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.setting-link:active {
+  opacity: 0.6;
+}
+
+.setting-link > svg {
+  flex: none;
+  width: 18px;
+  height: 18px;
+  color: var(--text-3);
+}
+
+/* the Advanced settings switch on its own, then the Advanced layer under one header */
+.settings-switch .settings-card {
+  padding-block: 2px;
+}
+
+.settings-advanced {
+  animation: settings-advanced-in 180ms ease-out;
+  scroll-margin-top: calc(var(--chrome-top) + 8px);
+}
+
+@keyframes settings-advanced-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.settings-advanced-head {
+  margin: 30px 4px 14px;
+}
+
+.settings-advanced-head > h2 {
+  margin: 0;
+  font-size: var(--fs-22);
+  font-weight: 700;
+}
+
+.settings-advanced-head > .caption {
+  margin: 2px 0 0;
+}
+
+/* Settings → Hermes: the prompt to copy, in the system's fixed-width face, scrolling in its box */
+.connect-prompt-box {
+  min-height: 0;
+  max-height: 260px;
+  font-family: ui-monospace, 'SF Mono', 'Roboto Mono', 'Droid Sans Mono', Menlo, Consolas, monospace;
+  font-size: var(--fs-13);
+  line-height: 1.45;
+  resize: none;
+}
+
+/* quiet hours: the two times share the width under their label */
+.quiet-hours .edit-row > .input {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Gestures: the label and its choices on one line; Haptics' four take the row beneath */
+.gesture-row.setting-stack {
+  gap: 8px;
+  padding: 10px 0 12px;
+}
+
+.setting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  min-height: 56px;
+}
+
+/* a label with its caption above a full-width control (Glass quality) */
+.setting-row.setting-stack {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+  padding: 12px 0 14px;
+}
+
+.setting-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+
+
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  gap: 10px;
+  margin-top: 6px;
+}
+
+.swatch {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  font-size: var(--fs-13);
+  font-weight: 560;
+}
+
+.swatch-art {
+  height: 64px;
+  border-radius: var(--r-lg);
+  box-shadow: inset 0 0 0 0.5px var(--hairline-strong);
+}
+
+.swatch[aria-pressed='true'] .swatch-art {
+  box-shadow: 0 0 0 3px var(--accent);
+}
+
+.verify-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--fs-15);
+  font-variant-numeric: tabular-nums;
+}
+
+.verify-table th,
+.verify-table td {
+  text-align: left;
+  padding: 6px 4px;
+  position: relative;
+}
+
+.verify-table th {
+  color: var(--text-3);
+  font-weight: 560;
+}
+
+.log-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: var(--fs-13);
+  color: var(--text-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.plan-card .plan-headline {
+  font-size: var(--fs-19);
+  font-weight: 650;
+}
+
+.plan-sub {
+  margin-top: 8px;
+  color: var(--text-2);
+  font-size: var(--fs-15);
+}
+
+.checkin {
+  container-type: inline-size;
+}
+
+.ci-inline {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  min-height: 60px;
+  padding: 0 6px;
+}
+
+.ci-inline .picks {
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+
+.ci-inline .pick {
+  min-width: 42px;
+  padding: 0;
+}
+
+.ci-label {
+  font-size: var(--fs-17);
+}
+
+@container (max-width: 330px) {
+  .ci-inline {
+    padding: 8px 6px 12px;
+  }
+  .ci-inline .ci-label {
+    flex-basis: 100%;
+  }
+  .ci-inline .picks {
+    flex: 1;
+  }
+  .ci-inline .pick {
+    flex: 1;
+  }
+}
+
+/* ------------------------------------------------------------------ Week */
+.wk-nav {
+  height: 52px;
+}
+
+.wk-this {
+  min-width: 96px;
+  height: 44px;
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+  color: var(--lg-ink);
+  font-size: var(--fs-15);
+  font-weight: 620;
+}
+
+.wk-this:disabled {
+  cursor: default;
+}
+
+.wk-title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin: 4px 2px 14px;
+}
+
+.wk-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.wk-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.wk-hijri {
+  font-size: var(--fs-13);
+  color: var(--text-3);
+  text-align: right;
+}
+
+.wk-day.is-today h2 {
+  color: var(--accent);
+}
+
+.wk-day.is-past {
+  opacity: 0.72;
+}
+
+.wk-prayers {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  margin: 0 0 10px;
+  padding: 8px 0;
+  list-style: none;
+  border-radius: var(--r-md);
+  background: var(--surface-sunken);
+  font-size: var(--fs-13);
+  text-align: center;
+}
+
+.wk-prayers li {
+  display: flex;
+  flex-direction: column;
+}
+
+.wk-events {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.wk-events li {
+  display: grid;
+  grid-template-columns: 76px 1fr;
+  gap: 10px;
+  align-items: baseline;
+}
+
+.wk-time {
+  font-size: var(--fs-15);
+  font-weight: 650;
+  color: var(--accent);
+}
+
+.wk-text {
+  font-size: var(--fs-17);
+}
+
+.wk-day .rows {
+  margin-top: 6px;
+}
+
+.wk-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.wk-col {
+  display: flex;
+  flex-direction: column;
+  min-height: 420px;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--card-shadow);
+  overflow: hidden;
+}
+
+.wk-col.is-past {
+  opacity: 0.72;
+}
+
+.wk-col-head {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 4px 8px;
+}
+
+.wk-col.is-today .wk-col-head {
+  background: var(--accent-soft);
+}
+
+/* concentric with the column: inset 4 px, its radius 4 px less (§13) */
+.wk-col-head {
+  margin: 4px 4px 0;
+  border-radius: calc(var(--r-lg) - 4px);
+}
+
+.wk-dow {
+  font-size: var(--fs-13);
+  color: var(--text-3);
+  font-weight: 600;
+}
+
+.wk-dom {
+  font-size: var(--fs-22);
+  font-weight: 720;
+}
+
+.wk-col.is-today .wk-dom,
+.wk-col.is-today .wk-dow {
+  color: var(--accent);
+}
+
+.wk-hday {
+  font-size: 11px;
+  color: var(--text-3);
+  text-align: center;
+  line-height: 1.2;
+}
+
+.wk-col-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px 6px;
+  font-size: var(--fs-13);
+  line-height: 1.3;
+}
+
+.wk-chip {
+  display: flex;
+  flex-direction: column;
+  padding: 6px 7px;
+  border-radius: var(--r-sm);
+  background: var(--accent-soft);
+  overflow-wrap: anywhere;
+}
+
+.wk-chip .wk-time {
+  font-size: 12px;
+}
+
+.wk-task {
+  position: relative;
+  padding: 4px 7px 4px 9px;
+  border-radius: var(--r-xs);
+  color: var(--text-2);
+  overflow-wrap: anywhere;
+}
+
+.wk-task.done {
+  text-decoration: line-through;
+  color: var(--text-3);
+}
+
+.wk-col-prayers {
+  position: relative;
+  list-style: none;
+  margin: 0;
+  padding: 6px 6px 8px;
+  font-size: 11px;
+  color: var(--text-3);
+}
+
+.wk-col-prayers li {
+  display: flex;
+  justify-content: space-between;
+}
+
+.wk-day {
+  scroll-margin-top: calc(var(--chrome-top) + 8px);
+}
+
+/* ------------------------------------------------------------------ page heads, goals */
+.page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 4px 2px 16px;
+}
+
+.section-title {
+  margin: 26px 4px 10px;
+  font-size: var(--fs-17);
+  color: var(--text-3-bg);
+}
+
+.section-toggle {
+  margin-top: 14px;
+}
+
+.counter-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin: 0 0 16px;
+}
+
+.counter-strip > div {
+  padding: 10px 14px;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--card-shadow);
+}
+
+.counter-strip dt {
+  font-size: var(--fs-13);
+  color: var(--text-3);
+}
+
+.counter-strip dd {
+  margin: 0;
+  font-size: var(--fs-22);
+  font-weight: 720;
+}
+
+.goal-card {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  width: 100%;
+  border: 0;
+  text-align: left;
+  color: inherit;
+  font: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.goal-title {
+  font-size: var(--fs-19);
+  font-weight: 650;
+  letter-spacing: -0.01em;
+}
+
+.goal-why {
+  font-size: var(--fs-15);
+}
+
+.progress-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0 2px;
+}
+
+.progress-line .bar {
+  flex: 1;
+  height: 8px;
+  border-radius: var(--r-pill);
+  background: var(--surface-sunken);
+  overflow: hidden;
+}
+
+.progress-line .bar > span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--ok-fill);
+}
+
+.done-list summary {
+  cursor: pointer;
+  color: var(--text-2);
+  font-size: var(--fs-15);
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+}
+
+/* ------------------------------------------------------------------ habits (round-2 brief §5)
+   one roomy card per habit: name and streak, the next check-in, the month strip, one grouped glass
+   control for today; 20 px gutters, nothing cramped */
+.habit-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin: 0 0 20px;
+}
+
+.habit-stats > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 16px 18px 14px;
+  border-radius: var(--r-lg);
+  background: var(--surface);
+  box-shadow: var(--card-shadow);
+}
+
+.habit-stats dt {
+  font-size: var(--fs-15);
+  color: var(--text-2);
+}
+
+.habit-stats dd {
+  margin: 0;
+  font-size: var(--fs-32);
+  font-weight: 740;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+}
+
+.habit-stats dd small {
+  margin-left: 6px;
+  font-size: var(--fs-15);
+  font-weight: 560;
+  letter-spacing: 0;
+  color: var(--text-2);
+}
+
+.habit-stats .caption {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.habit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.habit-list > .card + .card {
+  margin-top: 0;
+}
+
+.card.habit {
+  padding: 20px 20px 22px;
+}
+
+.habit-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.habit-id {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.habit-id h2 {
+  font-size: var(--fs-19);
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.streak {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  line-height: 1;
+  padding-top: 2px;
+}
+
+.streak-n {
+  font-size: var(--fs-32);
+  font-weight: 760;
+  letter-spacing: -0.03em;
+  color: var(--ok);
+}
+
+.habit-more {
+  margin: -6px -12px 0 -2px;
+}
+
+.habit-next {
+  margin: 14px 0 10px;
+  font-size: var(--fs-15);
+  color: var(--text-2);
+}
+
+/* the month strip: one bar per day, a glance, not a control */
+.mstrip-days {
+  display: flex;
+  gap: 3px;
+  height: 22px;
+}
+
+.ms {
+  flex: 1;
+  min-width: 0;
+  border-radius: var(--r-xs);
+  background: transparent;
+}
+
+.ms-clean {
+  background: var(--ok-fill);
+}
+
+.ms-slip {
+  background: var(--crit-fill);
+  opacity: 0.75;
+}
+
+.ms-skip {
+  background: var(--surface-sunken);
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+}
+
+.ms-not-logged {
+  box-shadow: inset 0 0 0 1.5px var(--hairline-strong);
+}
+
+.ms-future,
+.ms-not-scheduled,
+.ms-before-start {
+  background: var(--surface-sunken);
+  opacity: 0.55;
+}
+
+.ms.is-today {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.mstrip-ends {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+}
+
+.habit-log {
+  margin-top: 18px;
+}
+
+.habit-log .segmented {
+  width: 100%;
+  /* the day's one control: options a full 44 px tall and more */
+  height: 52px;
+}
+
+.habit-log .seg-item {
+  font-size: var(--fs-17);
+}
+
+.habit-off {
+  margin-top: 16px;
+}
+
+.day-picks {
+  margin-top: 8px;
+}
+
+.day-picks .pick {
+  flex: 1;
+  padding: 0;
+}
+
+.past-log {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.danger-zone {
+  padding-top: 6px;
+}
+
+.btn-danger {
+  color: var(--crit);
+  align-self: flex-start;
+  margin-left: -14px;
+}
+
+.btn-danger-solid {
+  background: var(--crit-fill);
+  color: #fff;
+  box-shadow: none;
+}
+
+/* ------------------------------------------------------------------ Privacy mode: a curtain over a private habit */
+.curtain {
+  position: relative;
+}
+
+.curtain.is-hidden {
+  overflow: hidden;
+}
+
+.curtain.is-hidden > .curtain-body {
+  filter: blur(9px);
+  pointer-events: none;
+  user-select: none;
+}
+
+.curtain-label {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border-radius: inherit;
+  font-weight: 650;
+  color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  user-select: none;
+  touch-action: manipulation;
+}
+
+.curtain-label svg {
+  width: 22px;
+  height: 22px;
+  color: var(--text-2);
+}
+
+/* a solid wash under the label so the blur reads as "hidden", not "out of focus" */
+.curtain.is-hidden::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+  pointer-events: none;
+}
+
+:root[data-glass='solid'] .curtain.is-hidden::after {
+  background: var(--surface);
+}
+
+/* a private habit named inside a plan or review (ADR-63): the generic words, set apart a little */
+.private-name {
+  font-style: italic;
+  color: var(--text-2);
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  .curtain.is-hidden::after {
+    background: var(--surface);
+  }
+}
+
+.month {
+  margin-top: 10px;
+}
+
+.month-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-weight: 650;
+}
+
+.month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.month-dow {
+  text-align: center;
+  font-size: var(--fs-13);
+  color: var(--text-3);
+}
+
+.day {
+  aspect-ratio: 1;
+  min-height: 40px;
+  border: 0;
+  border-radius: var(--r-sm);
+  background: var(--surface-sunken);
+  color: var(--text-2);
+  font-size: var(--fs-15);
+  font-variant-numeric: tabular-nums;
+}
+
+.day-clean {
+  background: var(--ok-fill);
+  color: #fff;
+  font-weight: 650;
+}
+
+.day-slip {
+  background: var(--crit-soft);
+  color: var(--crit);
+  font-weight: 650;
+  box-shadow: inset 0 0 0 1.5px var(--crit);
+}
+
+.day-skip {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+  color: var(--text-3);
+}
+
+.day-not-scheduled,
+.day-before-start,
+.day-future {
+  background: transparent;
+  color: var(--text-3);
+}
+
+.day-not-logged {
+  background: transparent;
+  box-shadow: inset 0 0 0 1.5px dashed var(--hairline-strong);
+  outline: 1.5px dashed var(--hairline-strong);
+  outline-offset: -3px;
+}
+
+.day.is-today {
+  box-shadow: 0 0 0 2px var(--accent);
+}
+
+.month-key {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.key {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--r-xs);
+}
+
+.key-clean {
+  background: var(--ok-fill);
+}
+
+.key-slip {
+  background: var(--crit-soft);
+  box-shadow: inset 0 0 0 1.5px var(--crit);
+}
+
+.key-skip {
+  box-shadow: inset 0 0 0 1px var(--hairline-strong);
+}
+
+.key-not-logged {
+  outline: 1.5px dashed var(--hairline-strong);
+  outline-offset: -2px;
+}
+
+/* ------------------------------------------------------------------ the verbatim entry and the encouragement */
+.nudge {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.hadith {
+  margin: 0;
+  padding: 16px 16px 12px;
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 0.5px var(--hairline-strong);
+}
+
+.hadith blockquote {
+  margin: 0;
+  white-space: pre-line;
+}
+
+.hadith-ar {
+  font-size: calc(var(--fs-19) * 1.05);
+  line-height: 1.95;
+  margin-bottom: 12px !important;
+  color: var(--text);
+}
+
+.hadith-en {
+  font-size: var(--fs-17);
+  line-height: 1.55;
+  color: var(--text);
+}
+
+.hadith-ref {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 12px;
+  padding-top: 10px;
+  font-size: var(--fs-13);
+  color: var(--text-2);
+}
+
+.hadith-book {
+  font-weight: 650;
+  color: var(--text);
+}
+
+.hadith-links {
+  display: flex;
+  gap: 14px;
+}
+
+.btn-link {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  min-height: 32px;
+  color: var(--accent);
+  font-size: var(--fs-13);
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+}
+
+.from-lifeos {
+  padding: 14px 16px;
+  border-radius: var(--r-lg);
+  background: var(--accent-soft);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.from-label {
+  font-size: var(--fs-13);
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.from-lifeos p {
+  font-size: var(--fs-17);
+}
+
+.daily-pick .hadith {
+  background: transparent;
+  box-shadow: none;
+  padding: 0;
+}
+
+/* ------------------------------------------------------------------ lists */
+.lists-switch {
+  margin-bottom: 16px;
+}
+
+.lists-switch .seg-item {
+  font-size: var(--fs-14);
+}
+
+.list-tools {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  margin-bottom: 14px;
+}
+
+.list-tools .input {
+  flex: 1;
+  min-width: 0;
+}
+
+.filter-line {
+  margin: -4px 4px 12px;
+  font-size: var(--fs-15);
+  color: var(--text-2);
+}
+
+.note-row,
+.link-row {
+  width: 100%;
+  text-decoration: none;
+  color: inherit;
+  align-items: center;
+}
+
+.note-preview {
+  font-size: var(--fs-15);
+  color: var(--text-2);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.note-text {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: var(--fs-17);
+  line-height: 1.55;
+}
+
+/* the segments stay mounted (round-2 brief §7, lib/segments.ts): one grid cell, so during the
+   150 ms cross-fade both are shown and the container keeps the taller height; a hidden segment
+   adds no height (size containment) and is skipped by the renderer */
+.lists-body {
+  display: grid;
+}
+
+.seg-pane {
+  grid-area: 1 / 1;
+  min-width: 0;
+  align-self: start;
+}
+
+.seg-pane[data-state='hidden'] {
+  visibility: hidden;
+  content-visibility: hidden;
+  pointer-events: none;
+}
+
+.seg-pane[data-state='out'] {
+  pointer-events: none;
+}
+
+/* ------------------------------------------------------------------ find and file (round-2 brief §8) */
+.sheet-search .sheet-body {
+  gap: 14px;
+}
+
+.search-cats .pick {
+  flex: 1 1 auto;
+}
+
+.results {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.result {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px 16px;
+  border-radius: var(--r-lg);
+  background: var(--surface-2);
+  box-shadow: inset 0 0 0 0.5px var(--hairline-strong);
+  /* a finger moving sideways drops it; up and down still scroll the sheet */
+  touch-action: pan-y;
+}
+
+.result[data-swiping] {
+  will-change: transform, opacity;
+}
+
+.result-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.result-title {
+  flex: 1;
+  min-width: 0;
+  padding-top: 9px;
+  font-size: var(--fs-17);
+  font-weight: 620;
+  line-height: 1.3;
+  color: var(--text);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.result-drop {
+  flex: none;
+  margin: -2px -10px 0 0;
+}
+
+.result-snippet {
+  font-size: var(--fs-15);
+  color: var(--text-2);
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.result .tag.engine {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.result-file {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.result-file .picks {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.result-file .pick {
+  gap: 4px;
+  padding: 0 6px;
+  font-size: var(--fs-14);
+  white-space: nowrap;
+}
+
+.result-file .pick svg {
+  flex: none;
+  width: 15px;
+  height: 15px;
+}
+
+.result-file .pick:disabled {
+  opacity: 1;
+}
+
+.quick-search {
+  align-self: flex-start;
+  margin-left: -10px;
+}
+
+.drafting .plan-headline {
+  color: var(--text-2);
+}
+
+.ok-text {
+  color: var(--ok);
+  font-weight: 600;
+}
+
+.review-block {
+  margin-top: 14px;
+  padding-top: 12px;
+}
+
+.review-block .review-text {
+  margin-top: 4px;
+}
+
+/* ------------------------------------------------------------------ Settings → System → Measure frames */
+.frames {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 14px;
+}
+
+.frame-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.frame-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.frame-stats div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border-radius: var(--r-md);
+  background: var(--surface-sunken);
+}
+
+.frame-stats dt {
+  font-size: var(--fs-13);
+  color: var(--text-3);
+}
+
+.frame-stats dd {
+  margin: 0;
+  font-size: var(--fs-19);
+  font-weight: 650;
+}
+
+/* while the meter runs, fingers stay out of the sequence */
+.frame-shield {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+}
+
+/* ------------------------------------------------------------------ Settings → Privacy: search */
+.site-list,
+.engine-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.site-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: var(--tap);
+  padding-left: 2px;
+  font-size: var(--fs-17);
+}
+
+
+
+.engine-list li {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 2px;
+}
+
+.engine-name {
+  font-weight: 600;
+}
+
+.engine-list li[data-status='dropped'] .engine-name,
+.engine-list li[data-status='refusing'] .engine-name {
+  color: var(--crit);
+}
+
+/* Today's three moments stay mounted (round-2 brief §11): one grid cell, cross-faded like Lists' segments */
+.today-moments {
+  display: grid;
+}
+
+.today-moment {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+/* the habit's header holds its menu (touch and hold); its layout stays the header's */
+.habit-top.swipe > .swipe-body {
+  display: contents;
+}
+
+/* separators are lines, not a box's square edge (round-2 brief §13): a hairline above the box */
+.card .setting-row + .setting-row,
+.card .switch + .switch,
+.card .setting-row + .switch,
+.card .switch + .setting-row,
+.habit-row + .habit-row,
+.site-list li + li,
+.engine-list li + li,
+.danger-zone,
+.frames,
+.hadith-ref,
+.ci-row + .ci-row,
+.events-mini,
+.review-block {
+  position: relative;
+}
+
+.card .setting-row + .setting-row::before,
+.card .switch + .switch::before,
+.card .setting-row + .switch::before,
+.card .switch + .setting-row::before,
+.habit-row + .habit-row::before,
+.site-list li + li::before,
+.engine-list li + li::before,
+.danger-zone::before,
+.frames::before,
+.hadith-ref::before,
+.ci-row + .ci-row::before,
+.events-mini::before,
+.review-block::before,
+.verify-table th::before,
+.verify-table td::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 0.5px;
+  background: var(--hairline);
+  pointer-events: none;
+}
+
+.hadith-ref::before {
+  background: var(--hairline-strong);
+}
+
+/* fills follow their track (capsules) */
+.goal-chip-bar > span,
+.progress-line .bar > span {
+  border-radius: inherit;
+}
+
+/* the fold's week grid and Today's week strip: their separators are lines too (§13) */
+.wk-col-head::after,
+.wk-col-prayers::before,
+.ws-days > li + li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0.5px;
+  background: var(--hairline);
+  pointer-events: none;
+}
+
+.wk-col-head::after {
+  bottom: 0;
+}
+
+.wk-col-prayers::before,
+.ws-days > li + li::before {
+  top: 0;
+}
+
+.ws-days > li + li {
+  position: relative;
+}
+
+/* a task in a day column: a rounded mark down its left side, not a square border */
+.wk-task::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 3px;
+  bottom: 3px;
+  width: 2px;
+  border-radius: var(--r-xs);
+  background: var(--text-3);
+}
+
+/* Settings → Gestures (round-3 brief §7): the try-it row sits on a sunken surface */
+.gesture-try {
+  margin-top: 6px;
+  border-radius: var(--r-in-card);
+  background: var(--surface-2);
+}
+
+.gesture-try .swipe {
+  border-radius: inherit;
+}

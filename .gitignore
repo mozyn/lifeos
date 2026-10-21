@@ -1,0 +1,7 @@
+# secrets that install.sh or the app writes beside compose.yaml — never commit them
+.env.auth
+.env.searxng
+.env.push
+.env.ai
+.env.telegram
+.env.gsq

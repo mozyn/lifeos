@@ -1,0 +1,67 @@
+# lifeos-searxng (spec §11, round-2 brief §8): reachable only on the compose network (no host port),
+# JSON enabled for the API. The secret comes from SEARXNG_SECRET: .env.searxng when present (this
+# host's scripts/start.sh makes one), else start.sh beside this file makes one on the first start.
+#
+# Engines kept after probing them from this host on 2026-10-20 (ADR-45; scripts/search-engines.mjs
+# repeats the check): Brave, Yahoo and Yep answer the web with 97-100 % relevant results; Wikipedia
+# answers when a query names an article; YouTube, Dailymotion and Brave Videos answer videos.
+# Dropped: Bing (answers every query with an unrelated one: "hawza classes" gave Rocket League,
+# a community college, the Seahawks, Wittgenstein), DuckDuckGo (CAPTCHA), Google, Qwant and eBay
+# (access denied), Startpage and Mojeek (proof-of-work CAPTCHA, inactive in this release), Vimeo
+# (times out). The API names the engines of a category on each request (apps/api/src/search.ts,
+# CATEGORY_ENGINES: keep the two lists in step) so the relevance guard can leave one out for 24 h.
+# Shopping (round-3 brief §6, ADR-68; scripts/search-shopping.mjs): this release's shopping engines,
+# eBay and Geizhals, both answer "access denied" to this host, so Shopping asks the web engines for
+# the typed words on amazon.com, walmart.com and target.com (`site:` filter); on 2026-10-20 that came
+# back 100 % on topic and on a shop from Yahoo and 89 % from Yep (Brave was rate-limiting the host).
+use_default_settings:
+  engines:
+    keep_only:
+      - brave
+      - yahoo
+      - yep
+      - wikipedia
+      - youtube
+      - dailymotion
+      - brave.videos
+
+general:
+  instance_name: "lifeos-search"
+  enable_metrics: false
+
+server:
+  secret_key: "set-by-SEARXNG_SECRET"
+  limiter: false
+  public_instance: false
+  image_proxy: false
+  method: "GET"
+
+search:
+  safe_search: 1
+  autocomplete: ""
+  formats:
+    - html
+    - json
+
+ui:
+  query_in_title: false
+
+outgoing:
+  request_timeout: 4.0
+  max_request_timeout: 8.0
+
+engines:
+  - name: brave
+    disabled: false
+  - name: yahoo
+    disabled: false
+  - name: yep
+    disabled: false
+  - name: wikipedia
+    disabled: false
+  - name: youtube
+    disabled: false
+  - name: dailymotion
+    disabled: false
+  - name: brave.videos
+    disabled: false

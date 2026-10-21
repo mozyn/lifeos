@@ -1,0 +1,16 @@
+**/node_modules
+**/dist
+.git
+.env
+.env.*
+.claude
+artifacts
+fixtures
+!fixtures/starter-vault
+e2e
+docs
+!docs/hermes-prompt.md
+**/*.tsbuildinfo
+**/.vite
+test-results
+playwright-report

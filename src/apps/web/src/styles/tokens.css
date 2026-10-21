@@ -1,0 +1,125 @@
+/*
+ * LifeOS design tokens. The colour values are the Work OS Default theme (lib/themes.ts applies the
+ * chosen theme at runtime; these are the pre-script fallback). Type is the system UI face (Google
+ * Sans / Roboto on the Pixel), one family, a calm 17 px body (spec §3 UI bar: 16–17 px base, 44 px
+ * targets). Spacing is generous on purpose: one job per screen.
+ */
+:root {
+  --font-ui: system-ui, -apple-system, 'Google Sans Text', 'Roboto', 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+  --font-arabic: 'Noto Naskh Arabic', 'Amiri', 'Geeza Pro', 'Traditional Arabic', 'Scheherazade New', serif;
+
+  --text-scale: 1;
+  --fs-13: calc(13px * var(--text-scale));
+  --fs-14: calc(14px * var(--text-scale));
+  --fs-15: calc(15px * var(--text-scale));
+  --fs-17: calc(17px * var(--text-scale));
+  --fs-19: calc(19px * var(--text-scale));
+  --fs-22: calc(22px * var(--text-scale));
+  --fs-26: calc(26px * var(--text-scale));
+  --fs-32: calc(32px * var(--text-scale));
+  --fs-44: calc(44px * var(--text-scale));
+
+  --gutter: 20px;
+  --gap: 14px;
+  --tap: 44px;
+  /* one radius scale (round-2 brief §13): nothing on screen is square, and no radius is an ad-hoc
+     number. A box inset by d inside a box of radius R gets R - d (concentric), never under --r-xs. */
+  --r-xs: 6px;
+  --r-sm: 10px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --r-card: 26px;
+  --r-xl: 30px;
+  --r-pill: 999px;
+  --r-row: var(--r-md);
+  --r-chip: var(--r-pill);
+  --r-in-card: max(var(--r-xs), calc(var(--r-card) - 12px));
+
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --dur-fast: 120ms;
+  --dur: 180ms;
+
+  --bg: #eef1f6;
+  --bg-content: #eef1f6;
+  --app-mesh: radial-gradient(ellipse 55% 50% at 6% 0%, rgba(122, 166, 255, 0.42), transparent),
+    radial-gradient(ellipse 48% 44% at 96% 4%, rgba(255, 168, 206, 0.3), transparent),
+    radial-gradient(ellipse 60% 52% at 72% 100%, rgba(116, 212, 255, 0.32), transparent),
+    radial-gradient(ellipse 44% 40% at 0% 96%, rgba(192, 168, 255, 0.3), transparent), #eef1f6;
+  --surface: #ffffff;
+  --surface-2: #f7f8fa;
+  --surface-sunken: #eceef2;
+  --text: #15161a;
+  --text-2: #454a54;
+  --text-3: #646a75;
+  --text-3-surface: #646a75;
+  --text-3-bg: color-mix(in srgb, var(--text-2) 62%, var(--text-3-surface));
+  --text-on-accent: #ffffff;
+  --hairline: rgba(20, 24, 33, 0.09);
+  --hairline-strong: rgba(20, 24, 33, 0.16);
+  --hover: rgba(20, 24, 33, 0.045);
+  --press: rgba(20, 24, 33, 0.08);
+  --selection: rgba(20, 24, 33, 0.075);
+
+  --accent: #0b5fd9;
+  --accent-fill: #0a5fe0;
+  --accent-soft: rgba(10, 95, 224, 0.11);
+  --accent-ring: rgba(11, 95, 217, 0.35);
+
+  --ok: #136c35;
+  --ok-fill: #34b26a;
+  --ok-soft: rgba(36, 160, 90, 0.12);
+  --warn: #8a5200;
+  --warn-fill: #f2a516;
+  --warn-soft: rgba(242, 165, 22, 0.16);
+  --crit: #b8251a;
+  --crit-fill: #e5372b;
+  --crit-soft: rgba(229, 55, 43, 0.11);
+
+  --card-shadow: 0 1px 2px rgba(16, 24, 40, 0.05), 0 8px 24px rgba(16, 24, 40, 0.06);
+  --shadow-pop: 0 18px 48px rgba(16, 24, 40, 0.2), 0 2px 6px rgba(16, 24, 40, 0.08), 0 0 0 0.5px rgba(16, 24, 40, 0.12);
+
+  --solid-chrome: #f7f8fa;
+  --solid-sidebar: #eceef2;
+  --solid-pop: #ffffff;
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --bg: #0c0d11;
+  --bg-content: #0c0d11;
+  --app-mesh: radial-gradient(ellipse 55% 50% at 6% 0%, rgba(52, 92, 200, 0.4), transparent),
+    radial-gradient(ellipse 48% 44% at 96% 6%, rgba(132, 60, 176, 0.3), transparent),
+    radial-gradient(ellipse 60% 52% at 72% 100%, rgba(18, 122, 150, 0.3), transparent),
+    radial-gradient(ellipse 44% 40% at 0% 96%, rgba(76, 52, 160, 0.3), transparent), #0c0d11;
+  --surface: #1b1c21;
+  --surface-2: #222329;
+  --surface-sunken: #16171b;
+  --text: #eceef2;
+  --text-2: #b6bac3;
+  --text-3: #8f949e;
+  --text-3-surface: #8f949e;
+  --hairline: rgba(255, 255, 255, 0.08);
+  --hairline-strong: rgba(255, 255, 255, 0.15);
+  --hover: rgba(255, 255, 255, 0.05);
+  --press: rgba(255, 255, 255, 0.09);
+  --selection: rgba(255, 255, 255, 0.08);
+  --accent: #64a9ff;
+  --accent-fill: #1d64d8;
+  --accent-soft: rgba(29, 100, 216, 0.22);
+  --accent-ring: rgba(100, 169, 255, 0.45);
+  --ok: #4cd483;
+  --ok-fill: #34c26c;
+  --ok-soft: rgba(52, 194, 108, 0.16);
+  --warn: #ffbe45;
+  --warn-fill: #f2a516;
+  --warn-soft: rgba(242, 165, 22, 0.17);
+  --crit: #ff6b60;
+  --crit-fill: #ff4a3d;
+  --crit-soft: rgba(255, 74, 61, 0.16);
+  --card-shadow: 0 0 0 0.5px rgba(255, 255, 255, 0.07);
+  --shadow-pop: 0 22px 60px rgba(0, 0, 0, 0.55), 0 0 0 0.5px rgba(255, 255, 255, 0.12);
+  --solid-chrome: #222329;
+  --solid-sidebar: #16171b;
+  --solid-pop: #1b1c21;
+  color-scheme: dark;
+}

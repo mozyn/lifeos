@@ -1,0 +1,446 @@
+/*
+ * Liquid Glass materials (ADR-19). One primitive: `.lg` (host) > `.lg-bg` (the refracting backdrop,
+ * tint, rim and sheen) + `.lg-glow` (touch light) + content. A bar that freezes (`data-freeze`, UI
+ * brief 4) splits the backdrop from the paint: `.lg-bg` (refraction only) + `.lg-frost` (its frosted
+ * twin) + `.lg-face` (tint, shadow, rim and sheen).
+ *
+ * Levels on <html data-glass>: liquid (refraction on Chromium, blur elsewhere), frosted (blur only,
+ * more opaque: Reduce glass effects, or the system's reduced transparency), solid (Reduce
+ * transparency, increased contrast, or Liquid Glass off).
+ *
+ * Materializing (engine.ts): the bend ramps through the SVG filter's `scale`, and the `.lg-bg`
+ * layer fades by its own opacity on the compositor. Its blur, tint and rim never change in a frame.
+ * A parent with opacity < 1 would cut the backdrop off, so glass hosts never animate opacity: only
+ * the `.lg-bg` layer does, which keeps the page as its backdrop.
+ */
+
+:root {
+  --glass-intensity: 0.7;
+  --lg-base: var(--surface);
+  --lg-tint-regular: color-mix(in srgb, var(--lg-base) 34%, transparent);
+  --lg-tint-bar: color-mix(in srgb, var(--lg-base) 36%, transparent);
+  --lg-tint-panel: color-mix(in srgb, var(--lg-base) 54%, transparent);
+  --lg-tint-thick: color-mix(in srgb, var(--lg-base) 80%, transparent);
+  --lg-tint-clear: color-mix(in srgb, var(--lg-base) 6%, transparent);
+  /* lens shading: light gathers along the top inside edge, the lower inside edge falls into shade */
+  --lg-inner-hi: rgba(255, 255, 255, 0.55);
+  --lg-inner-shade: rgba(16, 20, 32, 0.07);
+  --lg-ink: var(--text);
+  --lg-ink-2: var(--text-2);
+  --lg-rim-hi: rgba(255, 255, 255, 0.95);
+  --lg-rim-mid: rgba(255, 255, 255, 0.28);
+  --lg-rim-lo: rgba(255, 255, 255, 0.55);
+  --lg-sheen: rgba(255, 255, 255, 0.5);
+  --lg-edge: rgba(16, 20, 32, 0.1);
+  --lg-shadow-sm: 0 1px 2px rgba(16, 20, 32, 0.06), 0 6px 16px rgba(16, 20, 32, 0.09);
+  --lg-shadow-md: 0 2px 6px rgba(16, 20, 32, 0.06), 0 14px 34px rgba(16, 20, 32, 0.13);
+  --lg-shadow-lg: 0 4px 14px rgba(16, 20, 32, 0.08), 0 30px 70px rgba(16, 20, 32, 0.2);
+  --lg-bright: 1.06;
+  --lg-sat-k: 1.85;
+}
+
+:root[data-theme='dark'] {
+  --lg-tint-regular: color-mix(in srgb, var(--lg-base) 38%, transparent);
+  --lg-tint-bar: color-mix(in srgb, var(--lg-base) 40%, transparent);
+  --lg-tint-panel: color-mix(in srgb, var(--lg-base) 56%, transparent);
+  --lg-tint-thick: color-mix(in srgb, var(--lg-base) 78%, transparent);
+  --lg-inner-hi: rgba(255, 255, 255, 0.16);
+  --lg-inner-shade: rgba(0, 0, 0, 0.22);
+  --lg-rim-hi: rgba(255, 255, 255, 0.5);
+  --lg-rim-mid: rgba(255, 255, 255, 0.1);
+  --lg-rim-lo: rgba(255, 255, 255, 0.24);
+  --lg-sheen: rgba(255, 255, 255, 0.14);
+  --lg-edge: rgba(0, 0, 0, 0.35);
+  --lg-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 20px rgba(0, 0, 0, 0.32);
+  --lg-shadow-md: 0 2px 8px rgba(0, 0, 0, 0.3), 0 16px 40px rgba(0, 0, 0, 0.42);
+  --lg-shadow-lg: 0 6px 18px rgba(0, 0, 0, 0.35), 0 34px 80px rgba(0, 0, 0, 0.55);
+  --lg-bright: 0.92;
+  --lg-sat-k: 1.6;
+}
+
+/* ------------------------------------------------------------------ the primitive */
+.lg {
+  position: relative;
+  z-index: 0;
+  color: var(--lg-ink);
+  --lg-tint: var(--lg-tint-regular);
+  --lg-blur: 2.5px;
+  --lg-shadow: var(--lg-shadow-sm);
+  --lg-rim-w: 1px;
+}
+
+.lg-bg {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background: var(--lg-tint);
+  box-shadow: var(--lg-shadow);
+  backdrop-filter: blur(calc(var(--lg-blur) + 10px)) saturate(var(--lg-sat-k));
+}
+
+/* refraction: Chromium only, at the liquid level (engine.ts writes --lg-url once the map is ready) */
+:root[data-glass='liquid'][data-glass-engine='svg'] .lg-bg {
+  backdrop-filter: blur(var(--lg-blur)) var(--lg-url, ) saturate(var(--lg-sat-k)) brightness(var(--lg-bright));
+}
+
+/* specular rim: light from the top left, catching again at the bottom right */
+.lg-bg::before,
+.lg-face::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: var(--lg-rim-w);
+  background: linear-gradient(
+    135deg,
+    var(--lg-rim-hi) 0%,
+    var(--lg-rim-mid) 28%,
+    color-mix(in srgb, var(--lg-rim-mid) 50%, transparent) 50%,
+    var(--lg-rim-mid) 72%,
+    var(--lg-rim-lo) 100%
+  );
+  mask:
+    linear-gradient(#000 0 0) content-box exclude,
+    linear-gradient(#000 0 0);
+  opacity: calc(0.55 + var(--glass-intensity) * 0.6);
+}
+
+/* lens shading, inner sheen and edge definition: what makes the glass read as thick */
+.lg-bg::after,
+.lg-face::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--lg-sheen) 30%, transparent), transparent 38%);
+  box-shadow:
+    inset 0 1px 1px -0.5px var(--lg-sheen),
+    inset 0 -1px 1.5px -1px color-mix(in srgb, var(--lg-sheen) 70%, transparent),
+    inset 0 10px 14px -12px var(--lg-inner-hi),
+    inset 0 -10px 16px -12px var(--lg-inner-shade),
+    inset 0 0 0 0.5px var(--lg-edge);
+}
+
+/* ------------------------------------------------------------------ bars that freeze (UI brief 4 §4)
+   While a scroll or a theme reveal runs, a bar over the moving content (the tab bar, the top
+   bar's group) would re-filter its backdrop in every frame. It cross-fades instead to a frosted
+   twin (blur, saturation and brightness: the liquid look without the bend) and back when the motion
+   ends (engine.ts glassMotion). Both are opacity transitions on the compositor; the tint, shadow,
+   rim and sheen sit on `.lg-face` above both, so nothing else changes. Hidden layers cost nothing. */
+.lg-frost,
+.lg-face {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.lg-face {
+  background: var(--lg-tint);
+  box-shadow: var(--lg-shadow);
+}
+
+/* the backdrops exist only while they show: a hidden layer that keeps a backdrop filter still
+   reaches the compositor's frame. So a layer drops its filter once it has faded out (the delayed,
+   discrete backdrop-filter transitions) and takes it back at once when it fades in. `--lg-xf` lets
+   a surface add its own transform transition (the tab bar's minimize, shell.css). */
+.lg[data-freeze] > .lg-bg {
+  background: none;
+  box-shadow: none;
+  transition:
+    var(--lg-xf, transform 0s),
+    opacity 120ms linear,
+    visibility 0s,
+    backdrop-filter 0s allow-discrete;
+}
+
+.lg[data-freeze] > .lg-bg::before,
+.lg[data-freeze] > .lg-bg::after {
+  content: none;
+}
+
+.lg-frost {
+  visibility: hidden;
+  opacity: 0;
+  backdrop-filter: none;
+  transition:
+    var(--lg-xf, transform 0s),
+    opacity 120ms linear,
+    visibility 0s linear 120ms,
+    backdrop-filter 0s linear 120ms allow-discrete;
+}
+
+.lg[data-frozen] > .lg-bg {
+  visibility: hidden;
+  opacity: 0;
+  transition:
+    var(--lg-xf, transform 0s),
+    opacity 120ms linear,
+    visibility 0s linear 120ms,
+    backdrop-filter 0s linear 120ms allow-discrete;
+}
+
+:root[data-glass='liquid'] .lg[data-frozen] > .lg-bg {
+  backdrop-filter: none;
+}
+
+.lg[data-frozen] > .lg-frost {
+  visibility: visible;
+  opacity: 1;
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat-k)) brightness(var(--lg-bright));
+  transition:
+    var(--lg-xf, transform 0s),
+    opacity 120ms linear,
+    visibility 0s,
+    backdrop-filter 0s allow-discrete;
+}
+
+/* Balanced (UI brief 4 §1, §5): glass that sits in a screen's content, inside a pane, draws no
+   backdrop until it refracts under a finger. Nothing passes beneath it (only the window's mesh,
+   which its tint already shows), and a backdrop root inside a pane would be re-filtered in every
+   frame the pane slides or scrolls. */
+:root[data-glass-quality='balanced'][data-glass-rules~='1'] .pane .lg:not([data-liq]) > .lg-bg {
+  backdrop-filter: none;
+}
+
+/* the bars get their own compositor layers (UI brief 4 §5) */
+:root[data-glass-rules~='5'] :is(.tabbar, .topbar > .tb-group, .rail) {
+  will-change: transform;
+}
+
+/* touch light: glows at the finger and spreads across the surface it belongs to. The light is a
+   fixed disc that press.ts moves with a transform; it fades by opacity (no repaint per move). */
+.lg-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 420ms ease-out;
+}
+
+.lg-glow-dot {
+  position: absolute;
+  left: -64px;
+  top: -64px;
+  width: 128px;
+  height: 128px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle closest-side,
+    color-mix(in srgb, var(--lg-sheen) 90%, transparent),
+    color-mix(in srgb, var(--lg-sheen) 25%, transparent) 45%,
+    transparent 75%
+  );
+}
+
+/* lit: the disc gets its own layer while the finger is down (every glass surface has one, so
+   a permanent layer each would crowd the compositor) */
+.lg[data-glow] > .lg-glow {
+  opacity: 0.75;
+  transition-duration: 80ms;
+}
+
+.lg[data-glow] > .lg-glow > .lg-glow-dot {
+  will-change: transform;
+}
+
+/* variants */
+.lg-thick {
+  --lg-tint: var(--lg-tint-thick);
+  --lg-blur: 22px;
+  --lg-shadow: var(--lg-shadow-lg);
+  --lg-rim-w: 1px;
+}
+
+.lg-clear {
+  --lg-tint: var(--lg-tint-clear);
+  --lg-blur: 0px;
+  --lg-shadow: var(--lg-shadow-sm);
+}
+
+.lg-tinted {
+  --lg-tint: color-mix(in srgb, var(--accent-fill) 86%, transparent);
+  --lg-blur: 4px;
+  --lg-rim-hi: rgba(255, 255, 255, 0.85);
+  --lg-sheen: rgba(255, 255, 255, 0.45);
+  color: var(--text-on-accent);
+}
+
+/* ------------------------------------------------------------------ press physics */
+[data-press] {
+  transition: scale var(--spring-bouncy-ms, 340ms) var(--spring-bouncy, cubic-bezier(0.34, 1.4, 0.64, 1));
+  -webkit-tap-highlight-color: transparent;
+}
+
+[data-press][data-pressed] {
+  scale: var(--press-scale, 1.07);
+  transition: scale 140ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* ------------------------------------------------------------------ the lens pill */
+/* The lens moves, swells and stretches by its transform only (lens.ts, UI brief 2 §2); its box
+   changes once per new target, never in a frame. */
+.lens-pill {
+  position: absolute;
+  left: 0;
+  top: var(--pill-inset, 3px);
+  bottom: var(--pill-inset, 3px);
+  z-index: 1;
+  border-radius: var(--r-pill);
+  pointer-events: none;
+  transform-origin: 0 50%;
+  will-change: transform;
+  --lg-shadow: none;
+}
+
+/* the option under the lens magnifies as text: a transition the browser rasterizes at its final size */
+[data-lensed] {
+  scale: var(--lensed-scale, 1.06);
+  transition: scale 140ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-lensed] {
+    scale: none;
+  }
+}
+
+/* at rest: a quiet raised capsule under the selected option */
+.lens-pill::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--pill-rest, color-mix(in srgb, var(--surface) 92%, transparent));
+  box-shadow:
+    0 1px 2px rgba(16, 20, 32, 0.1),
+    0 3px 10px rgba(16, 20, 32, 0.08),
+    inset 0 0 0 0.5px var(--hairline);
+  transition: opacity 160ms ease-out;
+}
+
+:root[data-theme='dark'] .lens-pill::before {
+  box-shadow:
+    0 1px 2px rgba(0, 0, 0, 0.35),
+    inset 0 0.5px 0 rgba(255, 255, 255, 0.12);
+}
+
+/* moving or held: the lens rises above the labels and magnifies them; the resting capsule fades
+   out while the glass fades in, and back (data-lens 'off' while the glass fades away) */
+.lens-pill[data-lens] {
+  z-index: 3;
+  --lg-shadow: 0 6px 18px rgba(16, 20, 32, 0.16), 0 1px 3px rgba(16, 20, 32, 0.1);
+}
+
+.lens-pill[data-lens='on']::before {
+  opacity: 0;
+  transition-duration: 220ms;
+}
+
+:root:not([data-glass='liquid']) .lens-pill[data-lens='on']::before,
+:root[data-glass-engine='css'] .lens-pill[data-lens='on']::before {
+  opacity: 1;
+}
+
+:root:not([data-glass='liquid']) .lens-pill[data-lens],
+:root[data-glass-engine='css'] .lens-pill[data-lens] {
+  z-index: 1;
+}
+
+/* ------------------------------------------------------------------ levels */
+:root[data-glass='frosted'] .lg {
+  --lg-tint-regular: color-mix(in srgb, var(--lg-base) 80%, transparent);
+  --lg-tint-bar: color-mix(in srgb, var(--lg-base) 84%, transparent);
+  --lg-tint-thick: color-mix(in srgb, var(--lg-base) 92%, transparent);
+  --lg-tint-clear: color-mix(in srgb, var(--lg-base) 30%, transparent);
+}
+
+:root[data-glass='frosted'] .lg-bg {
+  backdrop-filter: blur(calc(var(--lg-blur) + 20px)) saturate(1.4);
+}
+
+/* only the liquid level freezes */
+:root:not([data-glass='liquid']) .lg-frost {
+  display: none;
+}
+
+:root:not([data-glass='liquid']) .lg[data-frozen] > .lg-bg {
+  visibility: visible;
+  opacity: 1;
+}
+
+:root[data-glass='solid'] .lg-bg,
+:root[data-glass='solid'] .lg-face {
+  backdrop-filter: none;
+  background: var(--solid-chrome);
+  box-shadow:
+    inset 0 0 0 1px var(--hairline-strong),
+    var(--lg-shadow);
+}
+
+:root[data-glass='solid'] .lg-thick > :is(.lg-bg, .lg-face) {
+  background: var(--solid-pop);
+}
+
+:root[data-glass='solid'] .lg-tinted > :is(.lg-bg, .lg-face) {
+  background: var(--accent-fill);
+}
+
+:root[data-glass='solid'] .lg-clear > :is(.lg-bg, .lg-face) {
+  background: transparent;
+  box-shadow: none;
+}
+
+:root[data-glass='solid'] .lg[data-freeze] > .lg-bg {
+  background: none;
+  box-shadow: none;
+}
+
+:root[data-glass='solid'] :is(.lg-bg, .lg-face)::before,
+:root[data-glass='solid'] :is(.lg-bg, .lg-face)::after,
+:root[data-glass='solid'] .lg-glow {
+  display: none;
+}
+
+@media (prefers-contrast: more) {
+  .lg-bg,
+  .lg-face {
+    backdrop-filter: none !important;
+    background: var(--solid-chrome) !important;
+    box-shadow: inset 0 0 0 1px var(--text-3) !important;
+  }
+  .lg[data-freeze] > .lg-bg {
+    background: none !important;
+    box-shadow: none !important;
+  }
+  .lg-frost {
+    display: none;
+  }
+  .lg-thick > :is(.lg-bg, .lg-face) {
+    background: var(--solid-pop) !important;
+  }
+  .lg-tinted > :is(.lg-bg, .lg-face) {
+    background: var(--accent-fill) !important;
+  }
+  :is(.lg-bg, .lg-face)::before,
+  :is(.lg-bg, .lg-face)::after,
+  .lg-glow {
+    display: none;
+  }
+}
+
+/* reduced motion: no swell, bounce or stretch */
+:root[data-motion='reduced'] [data-press][data-pressed] {
+  scale: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full']) [data-press][data-pressed] {
+    scale: none;
+  }
+}
