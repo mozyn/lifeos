@@ -43,8 +43,8 @@ What it does:
    (or run `./install.sh` inside WSL).
 4. Answer its questions: use a notes folder you already have, or make a new one for the starter
    notes (LifeOS puts them in an empty folder when it first starts). It also asks, if you want,
-   for a model on your computer and a Telegram bot. It builds LifeOS (a few minutes the first
-   time) and prints the address.
+   for a model on your computer and a Telegram bot. It downloads LifeOS's images (a few minutes
+   the first time) and prints the address.
 5. Open **http://localhost:8480/lifeos/**, choose a passphrase (the only key to LifeOS), then tell
    it where you are: a city from its built-in list (nothing is looked up online), or coordinates.
 
@@ -53,13 +53,14 @@ It also starts by itself when Docker starts.
 
 ## Install on a NAS (Dockge, ZimaOS, TrueNAS, Unraid)
 
-No installer and no shell: the folder's `compose.yaml` builds LifeOS on the NAS itself (there is
-no image to download), and on its first start LifeOS makes its own secrets and puts the starter
-notes in an empty notes folder. You set three values and press Deploy.
+No installer and no shell: the folder's `compose.yaml` pulls LifeOS's three images from GitHub's
+container registry (nothing is built on the NAS), and on its first start LifeOS makes its own
+secrets and puts the starter notes in an empty notes folder. You set three values and press
+Deploy.
 
 You need **Dockge** (an app in the ZimaOS App Store, the TrueNAS Apps catalog and Unraid's
 Community Applications), a folder on the NAS for your notes (empty, or your existing notes), and
-about 1 GB of memory free while it builds.
+about 1 GB of memory free while it downloads the images.
 
 ### Dockge, step by step
 
@@ -82,7 +83,7 @@ about 1 GB of memory free while it builds.
      folder, the `lifeos-api` log in Dockge says so and names the owner it found.
    - Optional: `TZ`, your time zone (for example `America/Toronto`), so the starter notes are
      dated your today; the first run asks where you are anyway.
-4. Press **Deploy**. The first build takes a few minutes (Dockge shows its progress); the three
+4. Press **Deploy**. The first run downloads the images (a few minutes); the three
    containers then turn **healthy**.
 5. Open **`http://<nas-ip>:8480/lifeos`** (for example `http://192.168.1.20:8480/lifeos`), choose a
    passphrase, then tell it where you are. It says once that plain http cannot install the app or
@@ -95,18 +96,17 @@ Dockge shows the stack as running. Port 8480 taken? Set `LIFEOS_PORT` to a free 
 ### Without Dockge
 
 - **A shell on the NAS** (SSH, or the NAS's own terminal), anywhere: copy the folder, set the
-  same three values in its `.env`, then in the folder run `docker compose up -d --build`.
+  same three values in its `.env`, then in the folder run `docker compose up -d`.
 - **ZimaOS, without Dockge**: App Store → **Install a customized app** (the **+** at the top) →
   **Import** → paste `compose.yaml`. It does not read this folder's `.env` and keeps the compose
-  file elsewhere, so a build needs this folder on the NAS at a path you write in: copy the folder
-  to, for example, `/DATA/AppData/lifeos`, and in the pasted text change `./src` to
-  `/DATA/AppData/lifeos/src` (three places) and put your values where the `${LIFEOS_…}` are.
-  Dockge does all of that for you.
-- **TrueNAS Apps, "Install via YAML" (a custom app)**: it does not build images, and LifeOS has
-  none to download. Use Dockge (from the TrueNAS Apps catalog) or a shell instead.
-- **Portainer**: **Stacks → Add stack** (web editor, upload or repository) does not carry the
-  `src/` folder the images are built from. Run `docker compose up -d --build` in the folder from a
-  shell on the NAS, or use Dockge; Portainer then shows and manages the running containers.
+  file elsewhere: paste the values from this folder's `.env` where the `${LIFEOS_…}` are (the
+  compose now pulls its images, so nothing else in the folder is needed). Dockge does all of
+  that for you.
+- **TrueNAS Apps, "Install via YAML" (a custom app)**: it can pull the images, so this may work
+  now — but the simplest path is still Dockge (from the TrueNAS Apps catalog) or a shell.
+- **Portainer**: **Stacks → Add stack** (web editor, upload or repository) now carries the
+  compose with nothing beside it: paste the compose, set the values, deploy. Portainer then
+  shows and manages the running containers.
 - **Unraid**: Dockge from Community Applications as above, or the Docker Compose Manager plugin
   pointed at this folder.
 
@@ -149,11 +149,13 @@ Then set `LIFEOS_PUBLIC_URL` to the https address (for example
 
 ### Updating on a NAS
 
-Get the new LifeOS folder, then replace this stack's `src/` folder and `compose.yaml` with the new
-ones (and `README.md` if you like). Keep `.env` and any other `.env.…` files: they are your
-settings. In Dockge press **Update** (it rebuilds from `src/`: a minute or two), or in a shell
-run `docker compose up -d --build`. Your notes, passphrase and LifeOS's database stay. Settings
-that are new in a version have defaults; compare the new folder's `.env` with yours to see them.
+The images are tagged, so an update is a pull: in `.env` set `LIFEOS_IMAGE_TAG` to the new tag
+(see the tags on the GitHub releases page), or leave it empty to take `latest`. Then in Dockge
+press **Deploy** (or in a shell run `docker compose pull && docker compose up -d`). If you got a
+new LifeOS folder, replace `compose.yaml` and `README.md` with the new ones. Keep `.env` and any
+other `.env.…` files: they are your settings. Your notes, passphrase and LifeOS's database stay.
+Settings that are new in a version have defaults; compare the new folder's `.env` with yours to
+see them.
 
 ## On your phone
 

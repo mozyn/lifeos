@@ -1,28 +1,18 @@
-# LifeOS (portable edition): three containers built from ./src, your notes folder mounted at /vault.
-# The app on GitHub: https://github.com/mozyn/lifeos  (git clone it, then docker compose up -d --build)
+# LifeOS (compose-only edition): three containers pulled from ghcr.io/mozyn/lifeos, your notes
+# folder mounted at /vault. No build and no source needed: this compose file plus .env is the app.
+# The app on GitHub: https://github.com/mozyn/lifeos
 #
-# Dockge / NAS: copy this folder to your stacks directory, set LIFEOS_VAULT_HOST, LIFEOS_BIND=0.0.0.0
-# and LIFEOS_UID/GID in the .env editor, Deploy. The first build takes a few minutes; then open
-# http://<nas-ip>:8480/lifeos . No installer and no shell: on the first start the stack makes its own
-# secrets and puts the starter notes in an empty notes folder. README.md: "Install on a NAS".
-#
-# On a computer, ./install.sh (or install.ps1) asks the same questions. Afterwards:
-#   docker compose -p lifeos up -d   (start, or apply .env changes)    docker compose -p lifeos stop
-# Everything you would change is in .env; optional secrets in .env.ai and .env.telegram beside it.
+# New install: set LIFEOS_VAULT_HOST in .env (Dockge: the .env panel), then
+#   docker compose up -d     open http://<this machine>:8480/lifeos
+# On the first start the stack makes its own secrets and puts the starter notes in an empty notes
+# folder. Everything else is in .env; optional secrets in .env.ai and .env.telegram beside it.
+# README.md: "Install on a NAS" for ZimaOS/TrueNAS/Unraid, "Connect Hermes" for the AI part.
+# To run a newer version: set LIFEOS_IMAGE_TAG in .env (the tags are on the GitHub releases page).
 name: ${LIFEOS_NAME:-lifeos}
 
 services:
   api:
-    build:
-      context: ./src
-      dockerfile: docker/Dockerfile
-      target: api
-      args:
-        LIFEOS_BUILD: ${LIFEOS_BUILD:-dev}
-    image: ${LIFEOS_NAME:-lifeos}-api:local
-    # built here, never pulled: a compose pull skips it and every `up` rebuilds it from the source
-    # (cached: seconds when nothing changed), so Dockge's Update applies a new src/ (product brief 10)
-    pull_policy: build
+    image: ghcr.io/mozyn/lifeos-api:${LIFEOS_IMAGE_TAG:-latest}
     container_name: ${LIFEOS_NAME:-lifeos}-api
     # the notes' owner (LIFEOS_UID/GID), so files written in the vault stay theirs
     user: "${LIFEOS_UID:-1000}:${LIFEOS_GID:-1000}"
@@ -72,15 +62,7 @@ services:
       start_period: 20s
 
   web:
-    build:
-      context: ./src
-      dockerfile: docker/Dockerfile
-      target: web
-      args:
-        LIFEOS_BUILD: ${LIFEOS_BUILD:-dev}
-    image: ${LIFEOS_NAME:-lifeos}-web:local
-    # built here, never pulled (see api)
-    pull_policy: build
+    image: ghcr.io/mozyn/lifeos-web:${LIFEOS_IMAGE_TAG:-latest}
     container_name: ${LIFEOS_NAME:-lifeos}-web
     restart: unless-stopped
     ports:
@@ -96,13 +78,12 @@ services:
       start_period: 5s
 
   searxng:
-    image: searxng/searxng:2026.10.19-81371861f
+    image: ghcr.io/mozyn/lifeos-searxng:${LIFEOS_IMAGE_TAG:-latest}
     container_name: ${LIFEOS_NAME:-lifeos}-searxng
     user: "977:977"
     restart: unless-stopped
-    # its secret: SEARXNG_SECRET from .env.searxng, else made on the first start and kept in
-    # searxng-etc (docker/searxng/start.sh), then the image's own entrypoint
-    entrypoint: ["/bin/sh", "/lifeos/start.sh"]
+    # its secret: SEARXNG_SECRET from .env.searxng, else made on the first start (the image's
+    # baked-in start.sh keeps it in the searxng-etc volume)
     environment:
       SEARXNG_SETTINGS_PATH: /lifeos/settings.yml
       __SEARXNG_SETTINGS_PATH: /lifeos/settings.yml
@@ -111,7 +92,6 @@ services:
       - path: .env.searxng
         required: false
     volumes:
-      - ./src/docker/searxng:/lifeos:ro
       - searxng-etc:/etc/searxng
       - searxng-cache:/var/cache/searxng
     networks:
