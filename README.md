@@ -20,17 +20,6 @@ What it does:
   model you choose can draft the morning plan and the evening review; you approve each one.
   Without one, LifeOS drafts them plainly from your tasks and times.
 
-## Quick start (from GitHub)
-
-```sh
-git clone https://github.com/mozyn/lifeos
-cd lifeos
-# set LIFEOS_VAULT_HOST in .env to your notes folder (or just run ./install.sh and answer)
-docker compose up -d
-```
-
-Then open `http://localhost:8480/lifeos`. Everything else is in the sections below.
-
 ## What you need
 
 - **Docker**: Docker Desktop (Windows, macOS) or Docker Engine with Compose (Linux), or a NAS
@@ -78,10 +67,8 @@ about 1 GB of memory free while it downloads the images.
 1. In Dockge, press **+ Compose**, type `lifeos` as the stack name, and press **Save**. Dockge
    makes the stack's folder: `/opt/stacks/lifeos` (ZimaOS: `/DATA/AppData/dockge/stacks/lifeos`;
    TrueNAS: `lifeos` in the dataset you gave Dockge for its stacks).
-2. Copy everything in this LifeOS folder into that folder, over SMB (a network share) or the NAS's
-   Files app, replacing the `compose.yaml` Dockge wrote. Copy the whole folder's contents,
-   including the file named `.env` (macOS and some file managers hide names starting with a dot;
-   they are copied all the same).
+2. Copy this folder's `compose.yaml` into that folder, replacing the `compose.yaml` Dockge wrote.
+   (There is no `.env` to copy: Dockge makes one when you save values in its .env box below.)
 3. Back in Dockge, open the `lifeos` stack (reload the page first) and press **Edit**. In the
    **.env** box, set:
    - `LIFEOS_VAULT_HOST`: your notes folder on the NAS, for example `/DATA/Documents/Notes`
@@ -110,7 +97,7 @@ Dockge shows the stack as running. Port 8480 taken? Set `LIFEOS_PORT` to a free 
   same three values in its `.env`, then in the folder run `docker compose up -d`.
 - **ZimaOS, without Dockge**: App Store → **Install a customized app** (the **+** at the top) →
   **Import** → paste `compose.yaml`. It does not read this folder's `.env` and keeps the compose
-  file elsewhere: paste the values from this folder's `.env` where the `${LIFEOS_…}` are (the
+  file elsewhere: paste the values (the notes folder, the bind, the uid/gid) where the
   compose now pulls its images, so nothing else in the folder is needed). Dockge does all of
   that for you.
 - **TrueNAS Apps, "Install via YAML" (a custom app)**: it can pull the images, so this may work
