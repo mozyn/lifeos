@@ -122,7 +122,21 @@ export function SwipeRow({
       }
       openRowMenu({ title: l.menuTitle, items });
     };
+    /** the gesture is over without its finger lifting: the row goes back, nothing runs */
+    const abandon = () => {
+      id = -1;
+      clearHold();
+      browserHold = false;
+      if (lock === 'x') finish(false, 'right');
+      lock = null;
+    };
     const down = (e: PointerEvent) => {
+      // a second finger ends the swipe (round 8); a first one ends any swipe whose end was never heard
+      if (!e.isPrimary) {
+        if (id !== -1) abandon();
+        return;
+      }
+      if (id !== -1 && lock === 'x') abandon();
       if (live.current.selecting) return;
       if (e.pointerType === 'mouse' && e.button !== 0) return;
       if ((e.target as Element).closest('input, textarea, select, [data-noswipe]')) return;
@@ -245,10 +259,15 @@ export function SwipeRow({
       // a touch-and-hold whose menu is open already fires this too: one menu
       if (performance.now() - menuAt > 800) openMenu();
     };
+    // the row's own capture lost before the finger lifted (not a child's implicit one, handed to the row)
+    const lost = (e: PointerEvent) => {
+      if (e.pointerId === id && e.target === row && lock === 'x') abandon();
+    };
     row.addEventListener('pointerdown', down);
     row.addEventListener('pointermove', move);
     row.addEventListener('pointerup', up);
     row.addEventListener('pointercancel', cancel);
+    row.addEventListener('lostpointercapture', lost);
     row.addEventListener('contextmenu', context);
     // a link or an image in the row is not dragged out by the browser (that would cancel the swipe)
     const noDrag = (e: DragEvent) => e.preventDefault();
@@ -260,6 +279,7 @@ export function SwipeRow({
       row.removeEventListener('pointermove', move);
       row.removeEventListener('pointerup', up);
       row.removeEventListener('pointercancel', cancel);
+      row.removeEventListener('lostpointercapture', lost);
       row.removeEventListener('contextmenu', context);
     };
   }, []);

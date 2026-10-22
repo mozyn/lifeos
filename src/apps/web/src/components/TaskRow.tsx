@@ -9,8 +9,8 @@ import { Glass } from '../glass/Glass';
 import { controllerFor } from '../glass/engine';
 import { motionReduced } from '../glass/spring';
 import { ApiError } from '../lib/api';
-import { toast, usePending } from '../lib/store';
-import { completeTask, dueLabel, effectiveStatus, reminderLabel, reopenTask } from '../lib/tasks';
+import { toast } from '../lib/store';
+import { completeTask, dueLabel, reminderLabel, reopenTask, useEffectiveStatus } from '../lib/tasks';
 import type { Task } from '../lib/types';
 import { openTaskSheet } from './TaskSheet';
 import { GroupRow, openGroupSheet, recurText } from './GroupRow';
@@ -79,9 +79,8 @@ export function taskActions(task: Task, done: boolean, toggle: () => void) {
 }
 
 function PlainRow({ task, today, onCompleted, showSource, child, closesGroup }: { task: Task; today: string; onCompleted?: (t: Task, el: HTMLElement | null) => void; showSource?: boolean; child?: boolean; closesGroup?: () => boolean }) {
-  const pending = usePending();
   const gone = useGone();
-  const status = effectiveStatus(task, pending);
+  const status = useEffectiveStatus(task);
   const done = status === 'done';
   const due = done ? null : dueLabel(task.due, today);
   const rem = done ? null : reminderLabel(task.reminder);

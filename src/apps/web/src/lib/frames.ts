@@ -5,6 +5,10 @@
  * - full (4 s): tab switches ×4, press-and-release ×4, theme flip ×2, Today ↔ Calendar ×2;
  * - tabs (3 s, "Tabs only"): 8 tab switches, each a tap (pointerdown, 60 ms, pointerup, click),
  *   375 ms apart, through every tab and back to Today.
+ * - scroll ("Record 8 s", round 8): no script and no shield. Armed, it waits up to 2 minutes for the
+ *   person's own first scroll anywhere in the app (the search results, a Lists segment: a scroll
+ *   that follows a finger moving, a wheel or a key), then records 8 s and names what was
+ *   scrolled; a toast says when the numbers are in.
  *
  * - display rate: from the smallest stable delta (the median of the deltas within 12 % of the
  *   10th percentile), snapped to a common panel rate when within 3 %;
@@ -17,6 +21,7 @@
 import { summarize } from './frame-stats';
 import { currentSlide, SLIDE_MS } from './panes';
 import { patchPrefs, readPrefs } from './prefs';
+import { toast } from './store';
 
 export { summarize };
 
@@ -41,9 +46,11 @@ export interface FrameReport {
   mode?: FrameMode;
   /** the tab slides seen: how many, the fewest and most frames one was on screen mid-way, travel */
   slides?: { count: number; minFrames: number; maxFrames: number; ms: number; travelPx: number };
+  /** scroll mode: what the person scrolled ("the search results", "Lists"), null when nothing did */
+  scrolled?: string | null;
 }
 
-export type FrameMode = 'full' | 'tabs';
+export type FrameMode = 'full' | 'tabs' | 'scroll';
 
 const KEY = 'lifeos.frames.last';
 
@@ -57,7 +64,7 @@ export function slidesText(s: NonNullable<FrameReport['slides']>): string {
 
 export function reportText(r: FrameReport): string {
   return [
-    `LifeOS frames ${r.at.slice(0, 16).replace('T', ' ')}${r.mode === 'tabs' ? ' (tabs only)' : ''}`,
+    `LifeOS frames ${r.at.slice(0, 16).replace('T', ' ')}${r.mode === 'tabs' ? ' (tabs only)' : r.mode === 'scroll' ? ` (scrolling ${r.scrolled ?? 'nothing'})` : ''}`,
     `${r.viewport}, glass ${r.glass}${r.quality ? `, quality ${cap(r.quality)}` : ''}, motion ${r.motion}`,
     `display ≈ ${r.hz} Hz (${r.intervalMs} ms)`,
     `${r.frames} frames in ${(r.durationMs / 1000).toFixed(1)} s, average ${r.avgFps} fps`,
@@ -142,9 +149,92 @@ const TABS_END_MS = 3000;
 
 let running: Promise<FrameReport> | null = null;
 
+/** Recording time and how long an armed "Record 8 s" waits for the first scroll. */
+export const SCROLL_RECORD_MS = 8000;
+const SCROLL_ARM_MS = 120_000;
+
+/** What a scroll moved, in the person's words: the search results, a sheet, or the screen's name. */
+function scrolledName(t: EventTarget | null): string {
+  const el = t instanceof Element ? t : document.documentElement;
+  if (el.closest('.sheet-search')) return 'the search results';
+  if (el.closest('.sheet')) return 'a sheet';
+  const pane = el.closest<HTMLElement>('.pane')?.dataset.pane;
+  return pane ? pane.charAt(0).toUpperCase() + pane.slice(1) : 'the page';
+}
+
+function save(report: FrameReport): void {
+  try {
+    localStorage.setItem(KEY, JSON.stringify(report));
+  } catch {
+    /* storage full */
+  }
+}
+
+/** "Record 8 s": wait for the person's first scroll, then record their own frames (no script, no shield). */
+function measureScroll(): Promise<FrameReport> {
+  return new Promise<FrameReport>((resolve) => {
+    const finish = (report: FrameReport) => {
+      save(report);
+      running = null;
+      resolve(report);
+    };
+    const base = () => ({
+      at: new Date().toISOString(),
+      viewport: `${window.innerWidth}×${window.innerHeight} @${Math.round(window.devicePixelRatio * 100) / 100}x`,
+      glass: document.documentElement.dataset.glass ?? 'liquid',
+      quality: document.documentElement.dataset.glassQuality,
+      motion: document.documentElement.dataset.motion ?? (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ? 'reduced (system)' : 'full'),
+      steps: 0,
+      mode: 'scroll' as const,
+    });
+    // the person's own scroll: one that follows a finger moving, a wheel or a key (a screen that
+    // scrolls itself into place does not start it)
+    let input = -Infinity;
+    const inputs = ['touchmove', 'wheel', 'keydown'] as const;
+    const touched = () => (input = performance.now());
+    const disarm = () => {
+      removeEventListener('scroll', first, { capture: true });
+      for (const t of inputs) removeEventListener(t, touched, { capture: true });
+    };
+    const giveUp = setTimeout(() => {
+      disarm();
+      finish({ ...base(), ...summarize([], 0), hidden: false, scrolled: null });
+    }, SCROLL_ARM_MS);
+    const first = (e: Event) => {
+      if (performance.now() - input > 1500) return;
+      clearTimeout(giveUp);
+      disarm();
+      const scrolled = scrolledName(e.target);
+      const deltas: number[] = [];
+      let hidden = document.visibilityState !== 'visible';
+      const onVis = () => {
+        if (document.visibilityState !== 'visible') hidden = true;
+      };
+      document.addEventListener('visibilitychange', onVis);
+      let start = 0;
+      let last = 0;
+      const tick = (t: number) => {
+        if (!start) start = t;
+        else deltas.push(t - last);
+        last = t;
+        if (t - start < SCROLL_RECORD_MS) requestAnimationFrame(tick);
+        else {
+          document.removeEventListener('visibilitychange', onVis);
+          finish({ ...base(), ...summarize(deltas, last - start), hidden, scrolled });
+          toast('Frames recorded: Settings → Diagnostics');
+        }
+      };
+      requestAnimationFrame(tick);
+    };
+    addEventListener('scroll', first, { capture: true, passive: true });
+    for (const t of inputs) addEventListener(t, touched, { capture: true, passive: true });
+  });
+}
+
 /** Run a sequence and record frames. Restores the appearance setting it found. */
 export function measureFrames(mode: FrameMode = 'full'): Promise<FrameReport> {
   if (running) return running;
+  if (mode === 'scroll') return (running = measureScroll());
   const sequence = mode === 'tabs' ? TABS_SEQUENCE : SEQUENCE;
   const endMs = mode === 'tabs' ? TABS_END_MS : END_MS;
   running = new Promise<FrameReport>((resolve) => {
@@ -202,11 +292,7 @@ export function measureFrames(mode: FrameMode = 'full'): Promise<FrameReport> {
           hidden,
           mode,
         };
-        try {
-          localStorage.setItem(KEY, JSON.stringify(report));
-        } catch {
-          /* storage full */
-        }
+        save(report);
         running = null;
         resolve(report);
       }, endMs);
@@ -215,4 +301,4 @@ export function measureFrames(mode: FrameMode = 'full'): Promise<FrameReport> {
   return running;
 }
 
-if (typeof window !== 'undefined') (window as unknown as { __lifeosFrames: object }).__lifeosFrames = { measure: measureFrames, summarize, modes: ['full', 'tabs'] };
+if (typeof window !== 'undefined') (window as unknown as { __lifeosFrames: object }).__lifeosFrames = { measure: measureFrames, summarize, modes: ['full', 'tabs', 'scroll'] };

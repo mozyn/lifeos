@@ -577,7 +577,8 @@ function ConnectionLog() {
 
 /**
  * Settings → Advanced → Diagnostics → Measure frames (UI brief 2 §2): the 4 s sequence, or "Tabs
- * only" (UI brief 3: 8 tab switches in 3 s), the numbers, a copy button.
+ * only" (UI brief 3: 8 tab switches in 3 s), or "Record 8 s" (round 8: the person's own scroll,
+ * from the first one anywhere in the app), the numbers, a copy button.
  */
 function FrameMeter() {
   const [report, setReport] = useState<FrameReport | null>(lastReport);
@@ -588,6 +589,8 @@ function FrameMeter() {
     const r = await measureFrames(mode);
     setReport(r);
     setBusy(null);
+    // their own scroll: they are where they scrolled, and the toast says the numbers are in
+    if (mode === 'scroll') return;
     navigate('/settings#frames');
     requestAnimationFrame(() => document.getElementById('frames')?.scrollIntoView({ block: 'center' }));
   };
@@ -605,6 +608,13 @@ function FrameMeter() {
         </span>
       </div>
       <p className="caption">Measure frames runs for 4 seconds: four tab switches, four presses, two theme flips, Today and Calendar twice. Tabs only runs for 3 seconds: eight tab switches. Keep the screen on and do not touch it.</p>
+      <div className="setting-row">
+        <span>Your own scroll</span>
+        <button type="button" className="btn" disabled={busy !== null} onClick={() => void run('scroll')} data-testid="measure-scroll">
+          {busy === 'scroll' ? 'Waiting for a scroll…' : 'Record 8 s'}
+        </button>
+      </div>
+      <p className="caption">Record 8 s waits for your first scroll anywhere in LifeOS (Lists, the search results), then records 8 seconds of it. A message says when it is done; the numbers are here.</p>
       {report && (
         <>
           <dl className="frame-stats" data-testid="frame-report">
@@ -634,7 +644,7 @@ function FrameMeter() {
             </div>
           </dl>
           <p className="caption" data-testid="frame-caption">
-            {report.mode === 'tabs' ? 'Tabs only. ' : ''}
+            {report.mode === 'tabs' ? 'Tabs only. ' : report.mode === 'scroll' ? (report.scrolled ? `Your scroll of ${report.scrolled}. ` : 'No scroll came within 2 minutes. ') : ''}
             {report.viewport}, glass {report.glass}
             {report.quality ? `, quality ${report.quality.charAt(0).toUpperCase()}${report.quality.slice(1)}` : ''}, max {report.maxMs} ms, {instantText(report.at, { year: true })}.
             {report.slides ? ` ${slidesText(report.slides)}.` : ''}

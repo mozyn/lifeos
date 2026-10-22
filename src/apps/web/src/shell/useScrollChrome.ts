@@ -1,6 +1,6 @@
 import { type RefObject, useEffect } from 'react';
 import { glassMotion } from '../glass/engine';
-import type { PaneKey } from '../lib/panes';
+import { type PaneKey, scrollMotion } from '../lib/panes';
 
 /**
  * Scroll-driven chrome, written straight to data attributes (no re-render per scroll event):
@@ -14,7 +14,8 @@ import type { PaneKey } from '../lib/panes';
  * main column when the pane is shown, without reading layout.
  *
  * A scroll of the visible pane by the user is motion under the bars: from its first event to its
- * `scrollend` (after the fling) the glass bars show their frosted twins (UI brief 4 §4).
+ * `scrollend` (after the fling) the glass bars show their frosted twins (UI brief 4 §4), and data
+ * changes wait to re-render the screens (round 8, lib/panes scrollMotion).
  */
 const flags = new Map<PaneKey, { scrolled: boolean; titled: boolean }>();
 
@@ -47,6 +48,7 @@ export function useScrollChrome(content: RefObject<HTMLElement | null>, main: Re
       if (!moving) return;
       moving = false;
       glassMotion('scroll', false);
+      scrollMotion('pane', false);
     };
     // scrollend ends it; the timer is the backstop (a pane hidden mid-fling, an engine without scrollend)
     const idleMs = 'onscrollend' in window ? 400 : 120;
@@ -68,6 +70,7 @@ export function useScrollChrome(content: RefObject<HTMLElement | null>, main: Re
       if (!moving && user) {
         moving = true;
         glassMotion('scroll', true);
+        scrollMotion('pane', true);
       }
       clearTimeout(still);
       still = setTimeout(stopped, idleMs);

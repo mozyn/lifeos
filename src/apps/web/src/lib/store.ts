@@ -10,7 +10,7 @@
 import Dexie, { type Table } from 'dexie';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { api, ApiError, apiGet, NetworkError, url, uuid } from './api';
-import { afterSlide } from './panes';
+import { afterScroll, afterSlide } from './panes';
 
 export interface OutboxOp {
   id: string;
@@ -302,7 +302,7 @@ function initial<T>(path: string | null): ResState<T> {
   return hit ? { data: hit.data as T, error: null, stale: hit.stale, loading: false } : { data: null, error: null, stale: false, loading: true };
 }
 
-/** A data change that would re-render a screen waits for a running slide to end (UI brief 3 §4). */
+/** A data change that would re-render a screen waits for a running slide to end (UI brief 3 §4), and for a scroll under a finger and its fling (round 8). */
 function deliver(fn: () => void): void {
   afterSlide(fn);
 }
@@ -310,7 +310,8 @@ function deliver(fn: () => void): void {
 /**
  * A cached GET that refreshes when the vault changes, when writes land, and on focus. A screen in
  * a hidden pane keeps its subscription (it stays current while hidden); answers that change
- * nothing do not re-render, and answers that do wait until no slide is running.
+ * nothing do not re-render, and answers that do wait until no slide is running. A refresh that a
+ * change asks for during a scroll under a finger waits for it to come to rest (round 8).
  */
 export function useResource<T>(path: string | null): Resource<T> {
   const [state, setState] = useState<ResState<T>>(() => initial<T>(path));
@@ -345,7 +346,19 @@ export function useResource<T>(path: string | null): Resource<T> {
     }
     // a prefetched answer from the last few seconds is current: no second request on mount
     if (!hit || Date.now() - hit.at > 5000) void reload();
-    const offs = [on('vault', () => void reload()), on('synced', () => void reload()), on('online', () => online && void reload())];
+    // a change elsewhere (the vault, a write landing, back online) is fetched once a scroll under a
+    // finger has come to rest, never in the middle of its fling (round 8); one fetch however many
+    // changes came meanwhile
+    let queued = false;
+    const later = () => {
+      if (queued) return;
+      queued = true;
+      afterScroll(() => {
+        queued = false;
+        if (alive) void reload();
+      });
+    };
+    const offs = [on('vault', later), on('synced', later), on('online', () => online && later())];
     const onFocus = () => document.visibilityState === 'visible' && void reload();
     document.addEventListener('visibilitychange', onFocus);
     return () => {

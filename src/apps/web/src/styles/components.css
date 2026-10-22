@@ -926,6 +926,63 @@
   padding: 10px 22px 20px;
 }
 
+/* A list sheet (round 8, the search results): the glass stays on the head and the scrolling body
+   sits on the sheet's own tint made opaque, so a fling inside the sheet re-filters no backdrop.
+   `.lg-bg` keeps the radius, rim, sheen and shadow over the whole sheet but draws no backdrop; its
+   tint turns into --sheet-fill over the last 14 px of the head (--sheet-head: where the body
+   starts, measured by the sheet). `.sheet-glass` is the head's backdrop, under that tint. The fill
+   is the tint over the dimmed page, so the head and the body read as one sheet. */
+.sheet[data-list] {
+  --sheet-under: color-mix(in srgb, var(--bg) 78%, rgb(10 12 16));
+  --sheet-fill: color-mix(in srgb, var(--lg-base) 88%, var(--sheet-under));
+}
+
+.sheet[data-list][data-detent='full'] {
+  --sheet-fill: color-mix(in srgb, var(--lg-base) 96%, var(--sheet-under));
+}
+
+:root[data-theme='dark'] .sheet[data-list] {
+  --sheet-under: color-mix(in srgb, var(--bg) 58%, #000);
+}
+
+:root:not([data-glass='solid']) .lg.sheet[data-list] > .lg-bg {
+  backdrop-filter: none;
+  background:
+    linear-gradient(to bottom, transparent calc(var(--sheet-head, 64px) - 14px), var(--sheet-fill) var(--sheet-head, 64px)),
+    var(--lg-tint);
+}
+
+.sheet-glass {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: -2;
+  height: var(--sheet-head, 64px);
+  border-top-left-radius: inherit;
+  border-top-right-radius: inherit;
+  pointer-events: none;
+  backdrop-filter: blur(calc(var(--lg-blur) + 10px)) saturate(var(--lg-sat-k));
+}
+
+:root[data-glass='liquid'][data-glass-engine='svg'] .sheet-glass {
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat-k)) brightness(var(--lg-bright));
+}
+
+:root[data-glass='frosted'] .sheet-glass {
+  backdrop-filter: blur(calc(var(--lg-blur) + 20px)) saturate(1.4);
+}
+
+:root[data-glass='solid'] .sheet-glass {
+  display: none;
+}
+
+@media (prefers-contrast: more) {
+  .sheet-glass {
+    display: none;
+  }
+}
+
 @media (max-width: 699px) {
   .overlay {
     align-items: flex-end;
@@ -1064,8 +1121,10 @@
   padding: 0 16px;
 }
 
+/* a toast is words over the screen: a finger that lands on them scrolls the list beneath (round 8,
+   toasts piled over the search results after filing); only its buttons take a tap */
 .toast {
-  pointer-events: auto;
+  pointer-events: none;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -1078,6 +1137,10 @@
   --lg-blur: 20px;
   --lg-shadow: var(--lg-shadow-md);
   animation: toast-in var(--spring-bouncy-ms, 340ms) var(--spring-bouncy, ease-out);
+}
+
+.toast :is(button, a) {
+  pointer-events: auto;
 }
 
 .toast .toast-action {

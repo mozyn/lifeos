@@ -59,6 +59,10 @@ let slides = 0;
 /** A pane that slid out, held off screen by its finished animation until the main thread is idle. */
 let parked: { el: HTMLElement; anim: Animation | null } | null = null;
 let deferred: (() => void)[] = [];
+/** scrolls under a finger and their flings now running (round 8): a pane's, a sheet's */
+const scrolls = new Set<string>();
+/** work that waits for the scrolls alone (a refresh's fetch), not for slides */
+let afterScrolls: (() => void)[] = [];
 /** waiting for a pane to be visible (whenVisible) and to be on screen (whenShown) */
 const visibleWaiters = new Map<PaneKey, (() => void)[]>();
 const shownWaiters = new Map<PaneKey, (() => void)[]>();
@@ -130,9 +134,37 @@ export function currentSlide(): { id: number; progress: number; travel: number }
   return { id: r.id, progress: typeof t?.progress === 'number' ? t.progress : 0, travel: r.travel };
 }
 
-/** Run `fn` once no slide is running (now, if none is). */
+/** Run `fn` once no slide is running and no scroll is under a finger or flinging (now, if none is). */
 export function afterSlide(fn: () => void): void {
-  if (running) deferred.push(fn);
+  if (running || scrolls.size) deferred.push(fn);
+  else fn();
+}
+
+/**
+ * A scroll under a finger starts (`on`) or ends with its fling (round 8): the work held back
+ * meanwhile (a data change that would re-render a long list) runs once no scroll and no slide
+ * runs and the thread is idle, not in the middle of a fling. `key`: whose scroll (a pane, a sheet);
+ * each source ends its own on `scrollend`, with a timer behind it.
+ */
+export function scrollMotion(key: string, on: boolean): void {
+  if (on) {
+    scrolls.add(key);
+    return;
+  }
+  if (!scrolls.delete(key) || scrolls.size) return;
+  if (deferred.length) flushDeferred();
+  if (afterScrolls.length)
+    idle(() => {
+      if (scrolls.size) return; // a new scroll flushes these when it ends
+      const work = afterScrolls;
+      afterScrolls = [];
+      for (const fn of work) fn();
+    });
+}
+
+/** Run `fn` once no scroll is under a finger or flinging (now, if none is): a data refresh's fetch and parse. */
+export function afterScroll(fn: () => void): void {
+  if (scrolls.size) afterScrolls.push(fn);
   else fn();
 }
 
@@ -191,7 +223,7 @@ function flushDeferred(): void {
   flushQueued = true;
   idle(() => {
     flushQueued = false;
-    if (running) return; // the slide that is running now flushes when it ends
+    if (running || scrolls.size) return; // the slide or scroll running now flushes when it ends
     const work = deferred;
     deferred = [];
     for (const fn of work) fn();

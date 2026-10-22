@@ -13,6 +13,7 @@ import { motionReduced, onFrame, Spring, SPRINGS, springEasing } from '../glass/
 import { dismissToast, useToasts } from '../lib/store';
 import { onVisibleChange, type Visible, visible } from '../lib/viewport';
 import { claimDrill, drillOut } from '../lib/transitions';
+import { scrollMotion } from '../lib/panes';
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
@@ -65,6 +66,11 @@ function useSheetDrag(ref: RefObject<HTMLElement | null>, active: boolean, onDis
       if (start !== null) place(dy);
     };
     const down = (e: PointerEvent) => {
+      // a second finger ends the drag: the sheet goes back where it was (round 8)
+      if (!e.isPrimary) {
+        if (start !== null) end(false);
+        return;
+      }
       if (!phone() || e.button !== 0) return;
       const t = e.target as Element | null;
       if (!t?.closest('.sheet-grabber, .sheet-title') || t.closest('button, a, input, select, textarea, [role="button"]')) return;
@@ -89,13 +95,13 @@ function useSheetDrag(ref: RefObject<HTMLElement | null>, active: boolean, onDis
       lastT = now;
       if (!frame) frame = requestAnimationFrame(follow);
     };
-    const up = (e: PointerEvent) => {
-      if (start === null || e.pointerId !== pointer) return;
+    /** `commit`: the finger lifted (a cancelled or interrupted drag never dismisses) */
+    const end = (commit: boolean) => {
       start = null;
       cancelAnimationFrame(frame);
       frame = 0;
       const h = el.getBoundingClientRect().height;
-      if (dy > Math.max(110, h / 3) || (v > 0.9 && dy > 24)) {
+      if (commit && (dy > Math.max(110, h / 3) || (v > 0.9 && dy > 24))) {
         el.style.transition = `transform ${motionReduced() ? 1 : 200}ms cubic-bezier(0.3, 0, 0.8, 0.15)`;
         place(h + 40);
         setTimeout(onDismiss, motionReduced() ? 0 : 190);
@@ -104,16 +110,28 @@ function useSheetDrag(ref: RefObject<HTMLElement | null>, active: boolean, onDis
         place(0);
       }
     };
+    const up = (e: PointerEvent) => {
+      if (start !== null && e.pointerId === pointer) end(true);
+    };
+    const cancel = (e: PointerEvent) => {
+      if (start !== null && e.pointerId === pointer) end(false);
+    };
+    // the sheet's own capture lost mid-drag (not the grabber's implicit one, handed to the sheet)
+    const lost = (e: PointerEvent) => {
+      if (e.target === el) cancel(e);
+    };
     el.addEventListener('pointerdown', down);
     el.addEventListener('pointermove', move);
     el.addEventListener('pointerup', up);
-    el.addEventListener('pointercancel', up);
+    el.addEventListener('pointercancel', cancel);
+    el.addEventListener('lostpointercapture', lost);
     return () => {
       cancelAnimationFrame(frame);
       el.removeEventListener('pointerdown', down);
       el.removeEventListener('pointermove', move);
       el.removeEventListener('pointerup', up);
-      el.removeEventListener('pointercancel', up);
+      el.removeEventListener('pointercancel', cancel);
+      el.removeEventListener('lostpointercapture', lost);
     };
   }, [ref, active, onDismiss]);
 }
@@ -134,10 +152,14 @@ let keyboardEase: string | null = null;
  * visual viewport (the keyboard's top edge), a bottom sheet slides with it instead of jumping, and
  * the focused field stays in view inside the sheet's scroller.
  */
-function useFitToVisible(overlay: RefObject<HTMLElement | null>, sheet: RefObject<HTMLElement | null>, active: boolean) {
+function useFitToVisible(overlay: RefObject<HTMLElement | null>, sheet: RefObject<HTMLElement | null>, active: boolean, moving: RefObject<boolean>) {
   useLayoutEffect(() => {
     const o = overlay.current;
     if (!active || !o) return;
+    // a scroll under a finger, or its fling, is never moved to the field (round 8)
+    const reveal = (s: HTMLElement | null) => {
+      if (!moving.current) revealFocused(s);
+    };
     let last = visible();
     const place = (v: Visible) => {
       if (!v.height) return;
@@ -156,16 +178,101 @@ function useFitToVisible(overlay: RefObject<HTMLElement | null>, sheet: RefObjec
         keyboardEase ??= springEasing(SPRINGS.smooth).easing;
         s.animate([{ transform: `translate3d(0, ${dy}px, 0)` }, { transform: 'translate3d(0, 0, 0)' }], { duration: 260, easing: keyboardEase, composite: 'add' });
       }
-      requestAnimationFrame(() => revealFocused(s));
+      requestAnimationFrame(() => reveal(s));
     });
     const s = sheet.current;
-    const onFocus = () => requestAnimationFrame(() => revealFocused(s));
+    const onFocus = () => requestAnimationFrame(() => reveal(s));
     s?.addEventListener('focusin', onFocus);
     return () => {
       off();
       s?.removeEventListener('focusin', onFocus);
     };
-  }, [overlay, sheet, active]);
+  }, [overlay, sheet, active, moving]);
+}
+
+/**
+ * A finger on the sheet, and the fling that follows it (round 8): from the touch until the body's
+ * scroll ends the sheet keeps the height it had, so the keyboard going down (or anything else that
+ * resizes the space) never resizes the scroller under the finger. When both are over the sheet
+ * takes the height it now has room for, sliding to its new top edge as it slides with the keyboard.
+ * `list`: a touch in the body of a list sheet (the search results) takes the focus off its field,
+ * so the keyboard goes down as the finger lands, before a fling starts. While the body scrolls,
+ * data changes wait to re-render the screens (lib/panes scrollMotion).
+ */
+function useHeldHeight(sheet: RefObject<HTMLElement | null>, body: RefObject<HTMLElement | null>, active: boolean, list: boolean): RefObject<boolean> {
+  const moving = useRef(false);
+  useEffect(() => {
+    const s = sheet.current;
+    const b = body.current;
+    if (!active || !s || !b) return;
+    let fingers = 0;
+    let scrolling = false;
+    let idle: ReturnType<typeof setTimeout> | undefined;
+    const release = () => {
+      if (!moving.current || fingers > 0 || scrolling) return;
+      moving.current = false;
+      const top = s.getBoundingClientRect().top;
+      s.style.height = '';
+      s.style.maxHeight = '';
+      // a bottom sheet grows or shrinks at its top edge: it rides there on the keyboard's slide;
+      // with reduced motion the list stays where the eye left it and the edge moves at once
+      const dy = s.getBoundingClientRect().top - top;
+      if (!dy) return;
+      if (motionReduced()) {
+        b.scrollTop += dy;
+        return;
+      }
+      keyboardEase ??= springEasing(SPRINGS.smooth).easing;
+      s.animate([{ transform: `translate3d(0, ${-dy}px, 0)` }, { transform: 'translate3d(0, 0, 0)' }], { duration: 260, easing: keyboardEase, composite: 'add' });
+    };
+    const touch = (e: TouchEvent) => {
+      fingers = e.touches.length;
+      if (e.type !== 'touchstart') {
+        release();
+        return;
+      }
+      if (!moving.current) {
+        moving.current = true;
+        // the used height to the fraction: a rounded one would resize the sheet by a sub-pixel
+        s.style.height = getComputedStyle(s).height;
+        s.style.maxHeight = 'none';
+      }
+      const a = document.activeElement;
+      const t = e.target as Element | null;
+      if (list && a instanceof HTMLElement && s.contains(a) && a.matches(EDITABLE) && t && b.contains(t) && !t.closest(EDITABLE)) a.blur();
+    };
+    const ended = () => {
+      clearTimeout(idle);
+      scrolling = false;
+      scrollMotion('sheet', false);
+      release();
+    };
+    const scrolled = () => {
+      scrolling = true;
+      scrollMotion('sheet', true);
+      clearTimeout(idle);
+      // scrollend ends it; the timer is the backstop (an engine without scrollend)
+      idle = setTimeout(ended, 'onscrollend' in window ? 400 : 120);
+    };
+    s.addEventListener('touchstart', touch, { passive: true });
+    s.addEventListener('touchend', touch, { passive: true });
+    s.addEventListener('touchcancel', touch, { passive: true });
+    b.addEventListener('scroll', scrolled, { passive: true });
+    b.addEventListener('scrollend', ended, { passive: true });
+    return () => {
+      clearTimeout(idle);
+      s.removeEventListener('touchstart', touch);
+      s.removeEventListener('touchend', touch);
+      s.removeEventListener('touchcancel', touch);
+      b.removeEventListener('scroll', scrolled);
+      b.removeEventListener('scrollend', ended);
+      scrollMotion('sheet', false);
+      moving.current = false;
+      s.style.height = '';
+      s.style.maxHeight = '';
+    };
+  }, [sheet, body, active, list]);
+  return moving;
 }
 
 /**
@@ -173,32 +280,50 @@ function useFitToVisible(overlay: RefObject<HTMLElement | null>, sheet: RefObjec
  * (title, optional `tools`, close), a scrolling body and a pinned footer for the primary action.
  * When the space is short (a phone in landscape with the keyboard up) the footer moves up into the
  * head row and `tools` take the title's place, so field, picker and action fit in about 120 px.
+ * `list`: the body scrolls a long list (the search results, round 8). The glass stays on the head
+ * (grabber, title, tools) and the body sits on the sheet's tint made opaque, so a scroll inside the
+ * sheet re-filters no backdrop; the radius, rim and shadow are the sheet's own.
  */
-export function Sheet(props: { open: boolean; onClose: () => void; title: ReactNode; children: ReactNode; footer?: ReactNode; tools?: ReactNode; className?: string; initialFocus?: string; testId?: string }) {
+export function Sheet(props: { open: boolean; onClose: () => void; title: ReactNode; children: ReactNode; footer?: ReactNode; tools?: ReactNode; className?: string; initialFocus?: string; testId?: string; list?: boolean }) {
   const ref = useRef<HTMLElement | null>(null);
   const overlayRef = useRef<HTMLDivElement | null>(null);
+  const bodyRef = useRef<HTMLDivElement | null>(null);
   const id = useId();
   useFocusTrap(ref, props.open, props.initialFocus);
   const close = useRef(props.onClose);
   close.current = props.onClose;
   const dismiss = useCallback(() => close.current(), []);
   useSheetDrag(ref, props.open, dismiss);
-  useFitToVisible(overlayRef, ref, props.open);
+  const moving = useHeldHeight(ref, bodyRef, props.open, !!props.list);
+  useFitToVisible(overlayRef, ref, props.open, moving);
   // a sheet that grew from a row (a drill-in) shrinks back into it when closed (UI brief 2 §3)
   useLayoutEffect(() => {
     if (props.open && ref.current) claimDrill(ref.current);
   }, [props.open]);
   const requestClose = () => void drillOut(ref.current, () => close.current());
+  const list = !!props.list;
   useLayoutEffect(() => {
     const el = ref.current;
     if (!props.open || !el) return;
+    const body = bodyRef.current;
+    let head = '';
     const ro = new ResizeObserver(() => {
-      if (el.offsetHeight > (overlayRef.current?.clientHeight ?? window.innerHeight) * 0.7) el.dataset.detent = 'full';
-      else delete el.dataset.detent;
+      const full = el.offsetHeight > (overlayRef.current?.clientHeight ?? window.innerHeight) * 0.7;
+      // written only when it changes: a rewrite restyles the sheet's glass all the same
+      if (full !== ('detent' in el.dataset)) {
+        if (full) el.dataset.detent = 'full';
+        else delete el.dataset.detent;
+      }
+      // a list sheet's glass ends where its body starts
+      if (list && body && `${body.offsetTop}px` !== head) {
+        head = `${body.offsetTop}px`;
+        el.style.setProperty('--sheet-head', head);
+      }
     });
     ro.observe(el);
+    if (list && body) ro.observe(body);
     return () => ro.disconnect();
-  }, [props.open]);
+  }, [props.open, list]);
   if (!props.open) return null;
   return createPortal(
     <div
@@ -217,6 +342,7 @@ export function Sheet(props: { open: boolean; onClose: () => void; title: ReactN
         aria-modal="true"
         aria-labelledby={id}
         data-testid={props.testId}
+        data-list={list ? '' : undefined}
         tabIndex={-1}
         onKeyDown={(e: ReactKeyboardEvent) => {
           if (e.key === 'Escape') {
@@ -226,6 +352,7 @@ export function Sheet(props: { open: boolean; onClose: () => void; title: ReactN
           trapTab(e, ref.current);
         }}
       >
+        {list && <span className="sheet-glass" aria-hidden />}
         <span className="sheet-grabber" aria-hidden />
         <h2 className="sheet-title" id={id}>
           {props.title}
@@ -234,7 +361,9 @@ export function Sheet(props: { open: boolean; onClose: () => void; title: ReactN
         <button className="icon-btn sheet-close" onClick={requestClose} aria-label="Close">
           <X />
         </button>
-        <div className="sheet-body">{props.children}</div>
+        <div className="sheet-body" ref={bodyRef}>
+          {props.children}
+        </div>
         {props.footer && <div className="sheet-foot">{props.footer}</div>}
       </Glass>
     </div>,

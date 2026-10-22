@@ -92,75 +92,87 @@ async function file(r: Result, where: Where): Promise<void> {
 
 // ------------------------------------------------------------------ one result
 
-/** A card that follows a finger to the left; past a third of its width it is dropped. */
-function useSwipe(ref: React.RefObject<HTMLElement | null>, onDrop: () => void) {
+/**
+ * Swipe to drop, one listener for every card (round 8): a finger that moves left first (past 10 px,
+ * mostly sideways) carries its card; past a third of its width, or a fast flick past 40 px, the card
+ * is dropped when the finger lifts. A finger that moves up or down first belongs to the scroller
+ * (touch-action: pan-y) and is let go at once. One finger swipes at a time: a second finger, a
+ * cancelled touch or a lost capture puts the card back and drops nothing.
+ */
+function useSwipeToDrop(box: React.RefObject<HTMLElement | null>, on: boolean, onDrop: (url: string) => void) {
   const drop = useRef(onDrop);
   drop.current = onDrop;
   useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    let id = -1;
-    let x0 = 0;
-    let y0 = 0;
-    let dx = 0;
-    let t0 = 0;
-    let swiping = false;
+    const root = box.current;
+    if (!on || !root) return;
+    let g: { id: number; el: HTMLElement; x0: number; y0: number; t0: number; dx: number; swiping: boolean } | null = null;
     let frame = 0;
     const place = () => {
       frame = 0;
-      el.style.transform = `translate3d(${Math.min(0, dx).toFixed(1)}px, 0, 0)`;
-      el.style.opacity = String(1 - Math.min(1, -Math.min(0, dx) / el.offsetWidth) * 0.6);
+      if (!g) return;
+      g.el.style.transform = `translate3d(${Math.min(0, g.dx).toFixed(1)}px, 0, 0)`;
+      g.el.style.opacity = String(1 - Math.min(1, -Math.min(0, g.dx) / g.el.offsetWidth) * 0.6);
     };
-    const reset = () => {
+    const back = (el: HTMLElement) => {
       el.style.transition = motionReduced() ? '' : 'transform 260ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 200ms ease-out';
       el.style.transform = '';
       el.style.opacity = '';
+      delete el.dataset.swiping;
       setTimeout(() => (el.style.transition = ''), 280);
     };
+    /** the gesture is over: the card goes back (never a drop) */
+    const abandon = () => {
+      cancelAnimationFrame(frame);
+      frame = 0;
+      if (g?.swiping) back(g.el);
+      g = null;
+    };
     const down = (e: PointerEvent) => {
-      if (e.pointerType === 'mouse' && e.button !== 0) return;
-      id = e.pointerId;
-      x0 = e.clientX;
-      y0 = e.clientY;
-      dx = 0;
-      t0 = performance.now();
-      swiping = false;
+      // a second finger ends the swipe; a first one ends any swipe whose end was never heard
+      abandon();
+      if (!e.isPrimary || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      const el = (e.target as Element | null)?.closest<HTMLElement>('[data-drop-url]');
+      if (!el || !root.contains(el)) return;
+      g = { id: e.pointerId, el, x0: e.clientX, y0: e.clientY, t0: performance.now(), dx: 0, swiping: false };
     };
     const move = (e: PointerEvent) => {
-      if (e.pointerId !== id) return;
-      const mx = e.clientX - x0;
-      const my = e.clientY - y0;
-      if (!swiping) {
+      if (!g || e.pointerId !== g.id) return;
+      const mx = e.clientX - g.x0;
+      const my = e.clientY - g.y0;
+      if (!g.swiping) {
         if (Math.abs(my) > 10 && Math.abs(my) > Math.abs(mx)) {
-          id = -1; // a scroll: not ours
+          g = null; // a scroll: not ours
           return;
         }
         if (mx < -10 && Math.abs(mx) > Math.abs(my) * 1.3) {
-          swiping = true;
-          el.dataset.swiping = '';
-          el.setPointerCapture?.(id);
+          g.swiping = true;
+          g.el.dataset.swiping = '';
+          g.el.setPointerCapture?.(g.id);
         } else return;
       }
-      dx = mx;
+      g.dx = mx;
       if (!frame) frame = requestAnimationFrame(place);
     };
     const up = (e: PointerEvent) => {
-      if (e.pointerId !== id) return;
-      id = -1;
+      if (!g || e.pointerId !== g.id) return;
+      const { el, dx, t0, swiping } = g;
+      g = null;
       cancelAnimationFrame(frame);
       frame = 0;
       if (!swiping) return;
       const w = el.offsetWidth;
       const fast = -dx / Math.max(1, performance.now() - t0) > 0.6;
+      const url = el.dataset.dropUrl!;
       if (-dx > w / 3 || (fast && -dx > 40)) {
-        if (motionReduced()) drop.current();
+        delete el.dataset.swiping;
+        if (motionReduced()) drop.current(url);
         else {
           el.style.transition = 'transform 180ms ease-in, opacity 180ms ease-in';
           el.style.transform = `translate3d(${-w - 24}px, 0, 0)`;
           el.style.opacity = '0';
-          setTimeout(() => drop.current(), 170);
+          setTimeout(() => drop.current(url), 170);
         }
-      } else reset();
+      } else back(el);
       // the click that ends a swipe opens nothing
       const swallow = (c: Event) => {
         c.stopPropagation();
@@ -168,28 +180,34 @@ function useSwipe(ref: React.RefObject<HTMLElement | null>, onDrop: () => void) 
       };
       el.addEventListener('click', swallow, { capture: true, once: true });
       setTimeout(() => el.removeEventListener('click', swallow, { capture: true }), 0);
-      swiping = false;
-      delete el.dataset.swiping;
     };
-    el.addEventListener('pointerdown', down);
-    el.addEventListener('pointermove', move);
-    el.addEventListener('pointerup', up);
-    el.addEventListener('pointercancel', up);
+    const cancel = (e: PointerEvent) => {
+      if (g && e.pointerId === g.id) abandon();
+    };
+    // the card's own capture lost before the finger lifted (the touch's first target losing its
+    // implicit capture to the card is not that)
+    const lost = (e: PointerEvent) => {
+      if (g?.swiping && e.pointerId === g.id && e.target === g.el) abandon();
+    };
+    root.addEventListener('pointerdown', down);
+    root.addEventListener('pointermove', move);
+    root.addEventListener('pointerup', up);
+    root.addEventListener('pointercancel', cancel);
+    root.addEventListener('lostpointercapture', lost);
     return () => {
-      cancelAnimationFrame(frame);
-      el.removeEventListener('pointerdown', down);
-      el.removeEventListener('pointermove', move);
-      el.removeEventListener('pointerup', up);
-      el.removeEventListener('pointercancel', up);
+      abandon();
+      root.removeEventListener('pointerdown', down);
+      root.removeEventListener('pointermove', move);
+      root.removeEventListener('pointerup', up);
+      root.removeEventListener('pointercancel', cancel);
+      root.removeEventListener('lostpointercapture', lost);
     };
-  }, [ref]);
+  }, [box, on]);
 }
 
 function ResultCard({ r, onDrop, filed, onFile }: { r: Result; onDrop: () => void; filed: Set<Where>; onFile: (w: Where) => void }) {
-  const ref = useRef<HTMLElement>(null);
-  useSwipe(ref, onDrop);
   return (
-    <article ref={ref} className="result" data-testid="search-result">
+    <article className="result" data-testid="search-result" data-drop-url={r.url}>
       <div className="result-head">
         <a href={r.url} target="_blank" rel="noreferrer noopener" className="result-title">
           {r.title}
@@ -293,8 +311,13 @@ export function SearchSheet({ open, initialQuery, initialCat, openId, onClose }:
     }
   };
   const results = answer?.results ?? [];
+  const resultsRef = useRef<HTMLDivElement>(null);
+  useSwipeToDrop(resultsRef, open && results.length > 0, (url) => {
+    const r = results.find((x) => x.url === url);
+    if (r) dropOne(r);
+  });
   return (
-    <Sheet open={open} onClose={onClose} title="Search the web" testId="search-sheet" initialFocus="input" className="sheet-search">
+    <Sheet open={open} onClose={onClose} title="Search the web" testId="search-sheet" initialFocus="input" className="sheet-search" list>
       <div className="edit-row">
         <input
           className="input"
@@ -354,7 +377,7 @@ export function SearchSheet({ open, initialQuery, initialCat, openId, onClose }:
         </p>
       )}
       {results.length > 0 && (
-        <div className="results" data-testid="search-results">
+        <div className="results" ref={resultsRef} data-testid="search-results">
           <span className="caption">
             {answer?.cached ? 'From the last 7 days’ results. ' : ''}
             {answer?.filtered ? `${answer.filtered} off-topic ${answer.filtered === 1 ? 'result' : 'results'} left out. ` : ''}Swipe left to drop one.

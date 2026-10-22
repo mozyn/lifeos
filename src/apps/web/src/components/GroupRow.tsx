@@ -12,8 +12,8 @@ import { Check, checkOf, TaskRow, taskActions } from './TaskRow';
 import { SwipeRow } from './SwipeRow';
 import { useGone } from '../lib/edits';
 import { ApiError } from '../lib/api';
-import { emit, on, toast, usePending, write } from '../lib/store';
-import { completeTask, dueLabel, effectiveStatus, reopenTask } from '../lib/tasks';
+import { emit, on, toast, write } from '../lib/store';
+import { completeTask, dueLabel, reopenTask, useEffectiveStatuses } from '../lib/tasks';
 import type { Task } from '../lib/types';
 import { drillIn } from '../lib/transitions';
 
@@ -27,13 +27,12 @@ export function recurText(recur: string | null): string | null {
 }
 
 export function GroupRow({ task, today }: { task: Task; today: string }) {
-  const pending = usePending();
   const gone = useGone();
   const g = task.group!;
   const [open, setOpen] = useState(() => expanded.has(task.id));
-  const status = effectiveStatus(task, pending);
+  const [status, ...childStatus] = useEffectiveStatuses([task, ...g.children]);
   const done = status === 'done';
-  const kids = g.children.map((c) => ({ c, s: effectiveStatus(c, pending) }));
+  const kids = g.children.map((c, i) => ({ c, s: childStatus[i] ?? c.status }));
   const doneN = kids.filter((k) => k.s === 'done').length;
   const total = kids.filter((k) => k.s !== 'cancelled').length;
   const due = done ? null : dueLabel(task.due, today);

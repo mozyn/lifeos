@@ -18,8 +18,8 @@ import { anchorOf, archivePaths, deleteLines, errText, useGone } from '../lib/ed
 import { endSelect, type Selectable, SelectScope } from '../lib/selection';
 import { CaptureSheet } from './today/cards';
 import { ApiError } from '../lib/api';
-import { toast, usePending, useResource, write } from '../lib/store';
-import { completeTask, effectiveStatus, reopenTask } from '../lib/tasks';
+import { toast, useResource, write } from '../lib/store';
+import { completeTask, reopenTask, useEffectiveStatus } from '../lib/tasks';
 import type { Capture, Task } from '../lib/types';
 import { drillIn } from '../lib/transitions';
 import { setSegState, switchSegment, warmSegments } from '../lib/segments';
@@ -337,8 +337,7 @@ function LinksTab() {
  * the grip reorders it (drag, or the arrow keys when it has focus).
  */
 function ItemRow({ it, kind, index, onDrag, onStep }: { it: ListItem; kind: 'shopping' | 'wishlist'; index?: number; onDrag?: (e: React.PointerEvent<HTMLElement>, index: number) => void; onStep?: (index: number, by: -1 | 1) => void }) {
-  const pending = usePending();
-  const done = effectiveStatus(it, pending) === 'done';
+  const done = useEffectiveStatus(it) === 'done';
   const [editing, setEditing] = useState(false);
   const toggle = (el: HTMLElement | null) => {
     const p = done ? reopenTask(it) : completeTask(it, el);

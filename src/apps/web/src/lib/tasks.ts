@@ -2,9 +2,10 @@
  * Task actions shared by every screen: complete (with the reward) and reopen, through the outbox
  * with the task's line anchor, plus the optimistic overlay of pending writes.
  */
+import { useMemo, useSyncExternalStore } from 'react';
 import { addDays, daysBetween, hm12, shortDate, weekdayName } from '@lifeos/shared';
 import { rewardBig, rewardSmall } from './rewards';
-import { type OutboxOp, write } from './store';
+import { on, type OutboxOp, pendingOps, write } from './store';
 import type { Task } from './types';
 
 /** Complete a task (with the chime); `closesGroup`: the last open child of a group, the group reward. */
@@ -27,6 +28,23 @@ export function effectiveStatus(t: Task, pending: OutboxOp[]): Task['status'] {
     if (op.kind === 'reopen') return 'open';
   }
   return t.status;
+}
+
+const onOutbox = (cb: () => void) => on('outbox', cb);
+
+/**
+ * A row's status with the writes still on their way (round 8): each row reads only its own, so a
+ * write re-renders the rows it changes, not every row of every mounted screen (the outbox changes
+ * two or three times per write).
+ */
+export function useEffectiveStatus(t: Task): Task['status'] {
+  return useSyncExternalStore(onOutbox, () => effectiveStatus(t, pendingOps()));
+}
+
+/** The same for a group and its items: `[the group's, …each item's]`, a new array only when one changes. */
+export function useEffectiveStatuses(ts: Task[]): Task['status'][] {
+  const key = useSyncExternalStore(onOutbox, () => ts.map((t) => effectiveStatus(t, pendingOps())).join(' '));
+  return useMemo(() => (key ? (key.split(' ') as Task['status'][]) : []), [key]);
 }
 
 /** Done today, counting writes still on their way. */
