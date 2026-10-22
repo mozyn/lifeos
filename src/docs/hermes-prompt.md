@@ -1,8 +1,9 @@
 <!--
 The prompt Settings → Hermes gives the owner to paste into their Hermes chat (product brief 9 §4,
 ADR-88). The API fills each placeholder in double braces (apps/api/src/integration/prompt.ts); a
-line whose value is empty is left out; this comment is not part of the prompt. Keep it under about
-600 words, plain imperative English, no tables, and the token's placeholder exactly once.
+line whose value is empty is left out; a line with a question-mark placeholder is kept only while
+that value is set, and the mark prints nothing; this comment is not part of the prompt. Keep it
+under about 600 words, plain imperative English, no tables, and the token's placeholder exactly once.
 -->
 I use LifeOS, my self-hosted planner, kept as markdown notes on my own computer. Be its main AI: draft my morning plan, evening review and habit encouragement for me to approve, add tasks and notes when I ask in chat, and send my reminders on Telegram. Use only the calls below.
 
@@ -12,6 +13,7 @@ Privacy: LifeOS gives you my tasks, events and habit logs. Use a local model for
 - {{docker_url}} (you run in Docker on this machine; if the name does not resolve, find the container with docker ps --filter name={{container}} and join its network: docker network connect {{network}} <your container>)
 - {{local_url}} (you run on this machine outside Docker)
 - {{public_url}}
+- {{?no_public_url}}my LifeOS web address (LifeOS does not know it yet: ask me)
 Then call GET <base>/api/integration/context with "Authorization: Bearer <token>" and tell me how many tasks are open today. Send "X-Hermes-Model: <your model>" with every call.
 
 2. Save the connection in your memory or as a skill: the base URL, this token as a secret, and these JSON endpoints under <base>/api/integration/.

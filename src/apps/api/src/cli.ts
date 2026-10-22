@@ -11,6 +11,7 @@
 import { join } from 'node:path';
 import { instantText } from '@lifeos/shared';
 import { loadConfig } from './config.js';
+import { resolveAddress } from './address.js';
 import { getSetting, openDb } from './db.js';
 import { Egress, installSocketGuard } from './egress.js';
 import { TelegramSender } from './telegram.js';
@@ -37,7 +38,9 @@ try {
     // the owner's zone once the first-run step chose a place (ADR-77), else TZ
     const tz = getSetting<{ prayer?: { tz?: string } }>(db, 'app', {}).prayer?.tz || config.tz;
     const when = instantText(new Date(), { tz, year: true });
-    const r = await sender.send(`🧪 LifeOS test message (${when}). This is a delivery check from the LifeOS build, not a reminder: reminders will arrive in this topic. You can ignore it.\n${config.publicUrl}/today`);
+    // the app's address: LIFEOS_PUBLIC_URL, else the one the API learned or was given (ADR-104)
+    const url = resolveAddress(config, db).url;
+    const r = await sender.send(`🧪 LifeOS test message (${when}). This is a delivery check from the LifeOS build, not a reminder: reminders will arrive in this topic. You can ignore it.${url ? `\n${url}/today` : ''}`);
     console.log(`sent: message ${r.messageId ?? '?'} to the reminder topic`);
   } else if (cmd === 'reindex') {
     const r = await new Vault(config.vault, db).fullScan('cli');

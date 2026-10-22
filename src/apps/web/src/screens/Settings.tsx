@@ -1,8 +1,8 @@
 /**
  * Settings (spec §4, round-4 brief §4): two layers. Simple, always shown: Appearance, Reminders,
  * Hermes (product brief 9 §3), Privacy, Gestures, the Advanced settings switch and About. Advanced,
- * under one header while that switch is on: Look and feel, Prayer, AI, Telegram bot, Search,
- * Diagnostics, Data. Nothing was removed, only moved. Device settings live on the device;
+ * under one header while that switch is on: Look and feel, Prayer, AI, Telegram bot, Address (round
+ * 8c), Search, Diagnostics, Data. Nothing was removed, only moved. Device settings live on the device;
  * everything else is stored by the API (never in the vault).
  */
 import { type ReactNode, useEffect, useState } from 'react';
@@ -15,13 +15,13 @@ import { HijriAdjust, MethodSelect } from '../components/PrayerFields';
 import { ProviderFields } from '../components/AiProvider';
 import { HermesSettings, TelegramRow } from '../components/Hermes';
 import { draftFrom, type ProviderDraft, type ProviderView, toBody } from '../lib/ai';
-import { api, ApiError } from '../lib/api';
+import { api, ApiError, appAddress } from '../lib/api';
 import { advancedOn, setAdvanced, useAdvanced } from '../lib/advanced';
 import { BUILD, reloadApp } from '../lib/build';
 import { type FrameMode, type FrameReport, lastReport, measureFrames, reportText, slidesText } from '../lib/frames';
 import { applyAppearance, glassQuality, type Prefs, resolveTheme, usePrefs } from '../lib/prefs';
 import { revealTheme } from '../lib/transitions';
-import { emit, reopenEvents, toast, useResource, write } from '../lib/store';
+import { emit, on, reopenEvents, toast, useResource, write } from '../lib/store';
 import { setPrivacy, usePrivacy } from '../lib/privacy';
 import { disablePush, enablePush, type PushState, pushState, refreshPush, testPush } from '../lib/push';
 import { choiceOf, GESTURE_DEFAULTS, type HapticStrength, HAPTIC_MS, type HoldChoice, HOLD_OPTIONS, haptic, resetGestures, setGestures, type SwipeChoice, SWIPE_OPTIONS, useGestures } from '../lib/gestures';
@@ -72,7 +72,7 @@ interface LogRow {
 }
 
 /** The Advanced groups: a link to one of them (`?s=search`) turns Advanced on first. */
-const ADVANCED = ['advanced', 'look', 'prayer', 'ai', 'telegram', 'search', 'diagnostics', 'data', 'frames'];
+const ADVANCED = ['advanced', 'look', 'prayer', 'ai', 'telegram', 'address', 'search', 'diagnostics', 'data', 'frames'];
 /** where round 3's sections went */
 const MOVED: Record<string, string> = { system: 'diagnostics' };
 
@@ -282,6 +282,10 @@ export function SettingsScreen() {
             ) : (
               loading
             )}
+          </Section>
+
+          <Section title="Address" id="address" level={3}>
+            <AddressSettings />
           </Section>
 
           <Section title="Search" id="search" level={3}>
@@ -996,6 +1000,80 @@ function AiStatus() {
         )}
       </Disclosure>
       <p className="caption">{data.agent ? 'Hermes runs the jobs with its own model; a plain draft stands in when it has not answered in 120 seconds.' : data.endpoint ? `One job at a time on ${data.endpoint}; each has 120 seconds before LifeOS uses its plain fallback.` : 'No model is set up: every draft is the plain fallback.'}</p>
+    </div>
+  );
+}
+
+interface AddressDto {
+  url: string | null;
+  source: 'env' | 'owner' | 'learned' | null;
+  at: string | null;
+}
+
+/**
+ * Settings → Advanced → Address (round 8c, ADR-104): the address reminder links, the Hermes prompt
+ * and the starter notes' guide link open. Learned from the browser the passphrase was set or signed
+ * in from; the owner may type another (empty: forget it, learn again). LIFEOS_PUBLIC_URL, when the
+ * server sets it, always wins and is shown read-only.
+ */
+function AddressSettings() {
+  const { data, reload } = useResource<AddressDto>('api/address');
+  const [text, setText] = useState<string | null>(null);
+  // the signed-in page reported its address as the app opened (App.tsx)
+  useEffect(() => on('address', () => void reload()), [reload]);
+  if (!data) return <p className="secondary">Loading…</p>;
+  const env = data.source === 'env';
+  const value = text ?? data.url ?? '';
+  const dirty = text !== null && text.trim() !== (data.url ?? '');
+  const source = env
+    ? 'Set on the server by LIFEOS_PUBLIC_URL, which always wins'
+    : data.source === 'owner'
+      ? 'Set by you. Empty it and save to learn it again.'
+      : data.source === 'learned'
+        ? data.url === appAddress()
+          ? 'Learned from this browser'
+          : 'Learned from the browser you signed in with'
+        : 'Not known yet: LifeOS learns it when you sign in. Until then Telegram reminders carry no link.';
+  const save = async () => {
+    try {
+      await api('api/address', { method: 'PUT', json: { url: value.trim() } });
+      setText(null);
+      await reload();
+    } catch (e) {
+      toast(e instanceof ApiError ? e.message : 'Not saved.', 'error');
+    }
+  };
+  return (
+    <div className="field setting-block" data-testid="address" data-source={data.source ?? 'none'}>
+      <span>
+        <label htmlFor="address-url">This app&rsquo;s address</label>
+      </span>
+      <p className="caption">Reminder links, the Hermes prompt and the starter notes&rsquo; guide link open it.</p>
+      <div className="edit-row">
+        <input
+          id="address-url"
+          className="input"
+          value={value}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && dirty && void save()}
+          placeholder="https://nas.example.ts.net/lifeos"
+          inputMode="url"
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
+          readOnly={env}
+          aria-describedby="address-source"
+          data-testid="address-url"
+        />
+        {!env && (
+          <button type="button" className="btn" disabled={!dirty} onClick={() => void save()} data-testid="address-save">
+            Save
+          </button>
+        )}
+      </div>
+      <p className="caption" id="address-source" data-testid="address-source">
+        {source}
+      </p>
     </div>
   );
 }

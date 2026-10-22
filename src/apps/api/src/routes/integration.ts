@@ -16,6 +16,7 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { formatReminder, formatTask, parseReminder } from '@lifeos/shared';
+import { appLink } from '../address.js';
 import type { Ctx } from '../context.js';
 import { HttpError } from '../http.js';
 import { contextFor, summaryText } from '../integration/context.js';
@@ -143,7 +144,7 @@ export function integrationRoutes(app: FastifyInstance, ctx: Ctx, { tokens, agen
     const line = formatTask({ text, due, reminder, priority: b.priority ?? null, slugs, tags: b.tags ?? [] });
     const path = await ctx.ops.addTaskToday(today, line);
     const row = ctx.db.prepare('SELECT id FROM tasks WHERE path = ? AND raw = ? ORDER BY line DESC LIMIT 1').get(path, line) as { id: string } | undefined;
-    return { ok: true, path, line, ...(row ? { id: row.id, link: `${ctx.config.publicUrl}/t/${row.id}` } : {}) };
+    return { ok: true, path, line, ...(row ? { id: row.id, link: appLink(ctx.publicUrl(), `/t/${row.id}`) } : {}) };
   });
 
   app.post('/api/integration/notes', async (req) => {

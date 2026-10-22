@@ -1,4 +1,5 @@
 import { todayIn, nowHm, type PrayerSettings, DEFAULT_PRAYER_SETTINGS, DEFAULT_PREFERRED_DOMAINS, type HijriOffset } from '@lifeos/shared';
+import { resolveAddress } from './address.js';
 import type { Config } from './config.js';
 import { type DB, getSetting } from './db.js';
 import type { Egress } from './egress.js';
@@ -59,6 +60,8 @@ export interface Ctx {
   /** the app's time zone: the chosen place's, else TZ (ADR-77) */
   tz: () => string;
   settings: () => AppSettings;
+  /** the app's address: LIFEOS_PUBLIC_URL, else the owner's or the learned one (ADR-104); null: not known yet */
+  publicUrl: () => string | null;
 }
 
 /** A zone the runtime knows (an IANA name such as America/Toronto). */
@@ -71,7 +74,7 @@ export function validZone(tz: string): boolean {
   }
 }
 
-export function makeCtx(base: Omit<Ctx, 'today' | 'hm' | 'tz' | 'settings'>): Ctx {
+export function makeCtx(base: Omit<Ctx, 'today' | 'hm' | 'tz' | 'settings' | 'publicUrl'>): Ctx {
   const settings = () => {
     const stored = getSetting<Partial<AppSettings>>(base.db, 'app', {});
     const s = { ...DEFAULT_SETTINGS, ...stored };
@@ -85,6 +88,7 @@ export function makeCtx(base: Omit<Ctx, 'today' | 'hm' | 'tz' | 'settings'>): Ct
     ...base,
     settings,
     tz,
+    publicUrl: () => resolveAddress(base.config, base.db).url,
     today: () => todayIn(tz(), base.now()),
     hm: () => nowHm(tz(), base.now()),
   };

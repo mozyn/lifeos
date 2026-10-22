@@ -58,8 +58,11 @@ export interface Config {
   telegram: boolean;
   /** LIFEOS_AI=off: deterministic fallbacks only, whatever the provider settings say */
   ai: boolean;
-  /** the address a reminder's link opens (Telegram, browser notifications) */
-  publicUrl: string;
+  /**
+   * LIFEOS_PUBLIC_URL: the app's address as the server is told it (null: unset). It always wins;
+   * without it the address is learned from the owner's browser (address.ts, ADR-104).
+   */
+  publicUrl: string | null;
   searxngUrl: string;
   /** TZ: the time zone until the first-run step chooses a city (whose zone then wins) */
   tz: string;
@@ -122,7 +125,7 @@ export function loadConfig(over: Partial<Config> = {}): Config {
     mode,
     telegram: env('LIFEOS_TELEGRAM', 'on') !== 'off',
     ai: env('LIFEOS_AI', 'on') !== 'off',
-    publicUrl: env('LIFEOS_PUBLIC_URL', 'http://localhost:8480/lifeos').replace(/\/+$/, ''),
+    publicUrl: env('LIFEOS_PUBLIC_URL').trim().replace(/\/+$/, '') || null,
     searxngUrl: env('LIFEOS_SEARXNG_URL', 'http://lifeos-searxng:8080').replace(/\/+$/, ''),
     tz: env('TZ', 'UTC'),
     aiEnv: aiFromEnv(),

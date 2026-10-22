@@ -14,6 +14,7 @@
  */
 import { randomBytes } from 'node:crypto';
 import { decide, fireTime, isUrgent, MAX_LATE_MS, releaseTime, zonedParts } from '@lifeos/shared';
+import { appLink } from '../address.js';
 import type { Ctx } from '../context.js';
 import type { DB } from '../db.js';
 import { reminderText } from '../scheduler.js';
@@ -82,6 +83,7 @@ export class AgentOutbox {
     const known = this.ctx.db.prepare('SELECT 1 FROM hermes_outbox WHERE key = ?');
     const priv = new PrivateHabits(habitsView(this.ctx, today, true));
     const botSent = this.ctx.db.prepare("SELECT 1 FROM deliveries WHERE key = ? AND status = 'sent'");
+    const url = this.ctx.publicUrl();
     let added = 0;
     for (const t of allTasks(this.ctx)) {
       if (t.status !== 'open' || !t.reminder || t.kind === 'archive') continue;
@@ -94,7 +96,7 @@ export class AgentOutbox {
       const release = urgent ? fire : releaseTime(fire, s.quietStart, s.quietEnd, tz);
       if (release.getTime() < since || botSent.get(key)) continue;
       // a task's words pass the same scrub as in the context: Hermes never reads a private habit's name
-      if (this.put({ key, kind: 'reminder', ref: t.id, title: priv.scrub(t.title), text: priv.scrub(reminderText(t, today, this.ctx.config.publicUrl)), link: `${this.ctx.config.publicUrl}/t/${t.id}`, fire_at: fire.toISOString(), due_at: now.toISOString() })) added++;
+      if (this.put({ key, kind: 'reminder', ref: t.id, title: priv.scrub(t.title), text: priv.scrub(reminderText(t, today, url)), link: appLink(url, `/t/${t.id}`), fire_at: fire.toISOString(), due_at: now.toISOString() })) added++;
     }
     return added;
   }
@@ -105,7 +107,7 @@ export class AgentOutbox {
    */
   offerNudge(n: { draftId: string; habitPath: string; date: string; title: string; text: string }, readyAt: Date): boolean {
     if (!this.tokens.active()) return false;
-    return this.put({ key: nudgeKey(n.habitPath, n.date), kind: 'nudge', ref: n.draftId, title: n.title, text: n.text, link: `${this.ctx.config.publicUrl}/habits`, fire_at: null, due_at: readyAt.toISOString() });
+    return this.put({ key: nudgeKey(n.habitPath, n.date), kind: 'nudge', ref: n.draftId, title: n.title, text: n.text, link: appLink(this.ctx.publicUrl(), '/habits'), fire_at: null, due_at: readyAt.toISOString() });
   }
 
   /** Hermes's encouragement arrived: the nudge's text with it, and it may go now (unless already acknowledged). */

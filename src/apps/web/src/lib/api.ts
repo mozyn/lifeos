@@ -21,6 +21,15 @@ export function url(path: string): string {
   return BASE + path.replace(/^\/+/, '');
 }
 
+/**
+ * The address this page opened LifeOS at (origin and base path, `https://nas.example.ts.net/lifeos`):
+ * sent when the passphrase is set or on a sign-in, so reminder links and the Hermes prompt use the
+ * address the owner really opens (ADR-104), not one the server would guess from its own headers.
+ */
+export function appAddress(): string {
+  return location.origin + BASE.replace(/\/+$/, '');
+}
+
 export interface ApiOptions {
   method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   json?: unknown;

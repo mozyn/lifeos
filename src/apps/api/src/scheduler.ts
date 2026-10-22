@@ -27,11 +27,12 @@ export interface DeliveryRow {
   kind: string;
 }
 
-export function reminderText(t: TaskDto, today: string, publicUrl: string): string {
+/** A reminder's Telegram text; its last line is the task's link while the app's address is known (ADR-104). */
+export function reminderText(t: TaskDto, today: string, publicUrl: string | null): string {
   const parts: string[] = [];
   if (t.due) parts.push(t.due === today ? 'Due today' : t.due < today ? `Overdue since ${shortDateDow(t.due)}` : `Due ${shortDateDow(t.due)}`);
   if (t.slugs.length) parts.push(`Goal: ${t.slugs.join(', ')}`);
-  return [`⏰ ${t.title}`, parts.join('. '), `${publicUrl}/t/${t.id}`].filter(Boolean).join('\n');
+  return [`⏰ ${t.title}`, parts.join('. '), publicUrl ? `${publicUrl}/t/${t.id}` : ''].filter(Boolean).join('\n');
 }
 
 /** A browser notification's second line: when it is due and its goal (the link is the tap). */
@@ -116,6 +117,7 @@ export class Scheduler {
          next_attempt_at = excluded.next_attempt_at, sent_at = excluded.sent_at, error = excluded.error, text = excluded.text`,
     );
     const tasks = allTasks(this.ctx).filter((t) => t.status === 'open' && t.reminder && t.kind !== 'archive');
+    const url = this.ctx.publicUrl();
     for (const t of tasks) {
       const key = `${t.path}|${t.hash}`;
       const row = get.get(key) as DeliveryRow | undefined;
@@ -124,7 +126,7 @@ export class Scheduler {
       const fire = fireTime({ reminder: t.reminder!, due: t.due, priority: t.priority }, today, s.prayer);
       if (!fire) continue;
       const d = decide(fire, now, isUrgent(t.priority), { start: s.quietStart, end: s.quietEnd, tz: this.ctx.tz() });
-      const base = { key, task_id: t.id, path: t.path, fire_at: fire.toISOString(), attempts: row?.attempts ?? 0, next_attempt_at: null as string | null, sent_at: null as string | null, error: null as string | null, text: reminderText(t, today, this.ctx.config.publicUrl) };
+      const base = { key, task_id: t.id, path: t.path, fire_at: fire.toISOString(), attempts: row?.attempts ?? 0, next_attempt_at: null as string | null, sent_at: null as string | null, error: null as string | null, text: reminderText(t, today, url) };
       if (d.action === 'wait') continue;
       if (d.action === 'expire') {
         upsert.run({ ...base, status: 'expired' });
@@ -166,7 +168,8 @@ export class Scheduler {
   /** A labelled test message (Settings → Reminders, and M3's one real delivery check). */
   async sendTest(): Promise<{ messageId: number | null }> {
     const when = instantText(new Date(), { tz: this.ctx.tz(), year: true });
-    return this.sender.send(`🧪 LifeOS test message (${when}). This is a delivery check, not a reminder: reminders will arrive in this topic. You can ignore it.\n${this.ctx.config.publicUrl}/today`);
+    const url = this.ctx.publicUrl();
+    return this.sender.send(`🧪 LifeOS test message (${when}). This is a delivery check, not a reminder: reminders will arrive in this topic. You can ignore it.${url ? `\n${url}/today` : ''}`);
   }
 
   /** Upcoming reminders (next 7 days) and recent deliveries, for Settings → Reminders. */

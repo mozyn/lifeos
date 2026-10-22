@@ -1,8 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { createBrowserRouter, Navigate, RouterProvider, useSearchParams } from 'react-router';
 import { mondayOf, todayIn } from '@lifeos/shared';
-import { api, NetworkError } from './lib/api';
-import { prefetch, reopenEvents, startSync } from './lib/store';
+import { api, appAddress, NetworkError } from './lib/api';
+import { emit, prefetch, reopenEvents, startSync } from './lib/store';
 import { AppShell, type ScreenKey } from './shell/AppShell';
 import { AuthScreen } from './screens/Auth';
 import { SettingsScreen } from './screens/Settings';
@@ -97,8 +97,14 @@ export function App() {
   const [exposed, setExposed] = useState(false);
   const check = useCallback(async () => {
     try {
-      const s = await api<{ setup: boolean; signedIn: boolean; exposed?: boolean; firstRun?: boolean }>('api/auth/state');
+      const s = await api<{ setup: boolean; signedIn: boolean; exposed?: boolean; firstRun?: boolean; address?: boolean }>('api/auth/state');
       setExposed(!!s.exposed);
+      // signed in from before LifeOS learned its address (or only a loopback one is known): this
+      // page's address, once (ADR-104)
+      if (s.signedIn && s.address)
+        void api('api/address/learn', { method: 'POST', json: { address: appAddress() } })
+          .then(() => emit('address'))
+          .catch(() => undefined);
       setState(s.setup ? 'setup' : !s.signedIn ? 'login' : s.firstRun ? 'first-run' : 'in');
     } catch (e) {
       // offline: open with what this device has cached (the session is checked again when back)

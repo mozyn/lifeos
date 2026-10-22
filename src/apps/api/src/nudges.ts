@@ -175,7 +175,10 @@ export class Nudges {
       lines.push('', p.entry.english.length > 1200 ? `${p.entry.english.slice(0, 1200)}…` : p.entry.english, `${p.entry.heading}${p.entry.grade ? ` (grading: ${p.entry.grade})` : ''}`);
     }
     const words = priv && isRelevant(p.habit.title, said, '');
-    lines.push('', `From LifeOS: ${words ? FALLBACK_ENCOURAGEMENT : said}`, `${this.ctx.config.publicUrl}/habits`);
+    lines.push('', `From LifeOS: ${words ? FALLBACK_ENCOURAGEMENT : said}`);
+    // the Habits link while the app's address is known (ADR-104)
+    const url = this.ctx.publicUrl();
+    if (url) lines.push(`${url}/habits`);
     return lines.join('\n');
   }
 }

@@ -5,7 +5,9 @@ import Fastify, { type FastifyInstance } from 'fastify';
 import cookie from '@fastify/cookie';
 import { Auth } from './auth.js';
 import { Planner } from './planner.js';
-import { authRoutes } from './routes/auth.js';
+import { type AddressLearner, authRoutes } from './routes/auth.js';
+import { addressRoutes } from './routes/address.js';
+import { fromOrigin, GUIDE_NOTE, type GuideRecord, guideRecord, learnAddress, RELATIVE_GUIDE, relinkGuide, wantsAddress } from './address.js';
 import { eventRoutes } from './routes/events.js';
 import { settingsRoutes } from './routes/settings.js';
 import { todayRoutes } from './routes/today.js';
@@ -114,6 +116,9 @@ export async function buildApp(config: Config, opts: BuildOptions = {}): Promise
   app.decorate('ctx', ctx);
   applySeed(ctx, (m) => app.log.info(m));
   await firstStart(app, ctx);
+  // the starter notes' guide link follows the app's address while the note is as seeded (ADR-104)
+  const followGuide = guideFollower(app, ctx);
+  void followGuide();
   // the model endpoint's host is allowed while AI is on, and only that host (ADR-75)
   egress.follow('ai', () => aiHosts(ctx));
 
@@ -178,7 +183,16 @@ export async function buildApp(config: Config, opts: BuildOptions = {}): Promise
       }
     }
   });
-  authRoutes(app, auth, () => setupNeeded(ctx), exposedBind(config.bind));
+  // the app's address from the owner's browser, when LIFEOS_PUBLIC_URL is unset (ADR-104)
+  const address: AddressLearner = {
+    learn: (offered, origin) => {
+      if (!fromOrigin(offered, origin) || !learnAddress(config, db, offered, ctx.now())) return;
+      app.log.info(`address: learned ${ctx.publicUrl()} from the owner's browser (reminder links and the Hermes prompt use it)`);
+      void followGuide();
+    },
+    wanted: () => wantsAddress(config, db),
+  };
+  authRoutes(app, auth, () => setupNeeded(ctx), exposedBind(config.bind), address);
   installIdempotency(app, db);
   taskRoutes(app, ctx);
   systemRoutes(app, ctx);
@@ -194,6 +208,7 @@ export async function buildApp(config: Config, opts: BuildOptions = {}): Promise
   editRoutes(app, ctx);
   eventRoutes(app, ctx);
   pushRoutes(app, push);
+  addressRoutes(app, ctx, address, () => void followGuide());
 
   app.get('/api/reminders', async () => scheduler.overview(ctx.now()));
   app.post('/api/reminders/test', async (_req, reply) => {
@@ -246,10 +261,40 @@ async function firstStart(app: FastifyInstance, ctx: Ctx): Promise<void> {
     const seen = getSetting<unknown>(db, 'starter', null) !== null || !!db.prepare('SELECT 1 FROM index_runs WHERE files > 0 LIMIT 1').get();
     if (!config.starter || !empty || !access.writable || seen || !existsSync(config.starterVault)) return;
     const today = ctx.today();
-    const notes = await seedStarter(config.starterVault, config.vault, today, `${config.publicUrl}/guide.html`);
-    setSetting(db, 'starter', { at: ctx.now().toISOString(), date: today, notes });
+    // the guide's link: at LIFEOS_PUBLIC_URL when it is set, else relative (never a localhost
+    // guess); a relative one follows the address once it is known (ADR-104)
+    const url = ctx.publicUrl();
+    const notes = await seedStarter(config.starterVault, config.vault, today, url ? `${url}/guide.html` : RELATIVE_GUIDE);
+    const links = url ? null : await ctx.vault.read(GUIDE_NOTE).catch(() => null);
+    const guide = links ? guideRecord(links) : null;
+    setSetting(db, 'starter', { at: ctx.now().toISOString(), date: today, notes, ...(guide ? { guide } : {}) });
     app.log.info(`starter notes: the notes folder was empty, so ${notes} starter notes were put in it, dated ${today}`);
   } catch (e) {
     app.log.error(`notes folder: could not check it or fill it with the starter notes: ${(e as Error).message}`);
   }
+}
+
+/**
+ * The starter notes' guide link, seeded relative before the address was known, rewritten to the
+ * address once one other devices reach is known, and again when it changes, only while the links
+ * note is byte for byte what LifeOS last wrote (ADR-104). One at a time: a second change waits for
+ * the first write, so it never mistakes LifeOS's own edit for the owner's.
+ */
+function guideFollower(app: FastifyInstance, ctx: Ctx): () => Promise<void> {
+  let chain = Promise.resolve();
+  const run = async () => {
+    try {
+      const st = getSetting<{ guide?: GuideRecord } | null>(ctx.db, 'starter', null);
+      if (!st?.guide) return;
+      const next = await relinkGuide(ctx.vault, st.guide, ctx.publicUrl(), ctx.config.name);
+      if (next === undefined) return;
+      const { guide: _old, ...rest } = st;
+      setSetting(ctx.db, 'starter', next ? { ...rest, guide: next } : rest);
+      if (next) app.log.info(`starter notes: the guide's link in ${GUIDE_NOTE} now opens ${next.url}`);
+    } catch (e) {
+      app.log.warn(`starter notes: could not update the guide's link in ${GUIDE_NOTE}: ${(e as Error).message}`);
+    }
+  };
+  // a run after the app closed (its database gone) ends quietly; the next one still runs
+  return () => (chain = chain.then(run).catch(() => undefined));
 }

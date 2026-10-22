@@ -4,7 +4,7 @@
  * (LIFEOS_BIND=0.0.0.0) and this page came over http (product brief 10 §2, ADR-94).
  */
 import { useState } from 'react';
-import { api, ApiError } from '../lib/api';
+import { api, ApiError, appAddress } from '../lib/api';
 
 const HTTPS_SEEN = 'lifeos:https-banner-seen';
 
@@ -59,7 +59,8 @@ export function AuthScreen({ setup, exposed = false, onDone }: { setup: boolean;
     }
     setBusy(true);
     try {
-      await api(setup ? 'api/auth/setup' : 'api/auth/login', { method: 'POST', json: { passphrase: pass } });
+      // this page's own address goes with it: LifeOS learns where it is opened (ADR-104)
+      await api(setup ? 'api/auth/setup' : 'api/auth/login', { method: 'POST', json: { passphrase: pass, address: appAddress() } });
       // seen on this device's first open: it does not come back
       if (banner) markHttpsSeen();
       onDone();

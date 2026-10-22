@@ -92,8 +92,9 @@ about 1 GB of memory free while it downloads the images.
    containers then turn **healthy**.
 5. Open **`http://<nas-ip>:8480/lifeos`** (for example `http://192.168.1.20:8480/lifeos`), choose a
    passphrase, then tell it where you are. It says once that plain http cannot install the app or
-   send notifications: see "HTTPS on a NAS" below. Put the address you open in `.env` as
-   `LIFEOS_PUBLIC_URL` (reminder links and the Hermes prompt use it) and Deploy again.
+   send notifications: see "HTTPS on a NAS" below. LifeOS remembers the address you opened it at
+   (reminder links and the Hermes prompt use it); Settings → Advanced → Address shows it, and you
+   can type another there. `LIFEOS_PUBLIC_URL` in `.env`, when you set it, always wins.
 
 Keep the stack's name and `LIFEOS_NAME` (in `.env`, `lifeos` unless you change it) the same, so
 Dockge shows the stack as running. Port 8480 taken? Set `LIFEOS_PORT` to a free one.
@@ -149,8 +150,9 @@ The phone installs LifeOS as an app, and gets notifications, only from an https 
 - **A local certificate** (for example from `mkcert`) on such a proxy, with its root installed on
   each phone and computer: https without a domain or Tailscale, more work per device.
 
-Then set `LIFEOS_PUBLIC_URL` to the https address (for example
-`https://nas-name.your-tailnet.ts.net/lifeos`) and Deploy again.
+Then sign in once at the https address (for example `https://nas-name.your-tailnet.ts.net/lifeos`):
+LifeOS takes it as its address from then on, over the plain-http one. Or set it as
+`LIFEOS_PUBLIC_URL` in `.env` and Deploy again.
 
 ### Updating on a NAS
 
@@ -169,8 +171,8 @@ A phone needs an HTTPS address to install LifeOS as an app (and to get notificat
 simplest way is [Tailscale](https://tailscale.com) on the computer and on the phone, then, on the
 computer: `tailscale serve --bg --set-path /lifeos http://127.0.0.1:8480`. Open
 `https://<your-computer>.<your-tailnet>.ts.net/lifeos` on the phone and choose **Add to Home
-screen** (Chrome) or **Share → Add to Home Screen** (Safari). Put that address in `.env` as
-`LIFEOS_PUBLIC_URL` so reminder links open it. Any other reverse proxy that serves
+screen** (Chrome) or **Share → Add to Home Screen** (Safari). Signing in there makes it the
+address reminder links open (or put it in `.env` as `LIFEOS_PUBLIC_URL`). Any other reverse proxy that serves
 `https://…/lifeos/` from `http://127.0.0.1:8480/lifeos/` works too.
 
 (Setting `LIFEOS_BIND=0.0.0.0` in `.env` lets every device on your home network open
@@ -205,7 +207,8 @@ first: LifeOS's API container on its Docker network, `lifeos-net` (both named af
 in `.env`). Put Hermes's container on that network once, with
 `docker network connect lifeos-net <hermes container>` (Hermes can do it itself if it may run
 `docker`). Hermes running directly on the computer uses `http://localhost:8480/lifeos`; on
-another machine, the HTTPS address from "On your phone" (set it as `LIFEOS_PUBLIC_URL`).
+another machine, the HTTPS address from "On your phone" (the one you sign in at, or
+`LIFEOS_PUBLIC_URL`).
 
 ## Reminders
 

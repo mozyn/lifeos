@@ -1,7 +1,8 @@
 /**
  * The copy-ready prompt for Hermes (product brief 9 §3–4, ADR-88): `docs/hermes-prompt.md` with the
  * real values filled in. Placeholders are `{{name}}`; a line whose placeholder has no value is left
- * out; the leading HTML comment is the template's own note and never part of the prompt.
+ * out; `{{?name}}` keeps its line only while `name` has a value and prints nothing itself; the
+ * leading HTML comment is the template's own note and never part of the prompt.
  */
 import { readFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
@@ -18,9 +19,9 @@ export function fill(template: string, values: Record<string, string>): string {
   const body = template.replace(/^\s*<!--[\s\S]*?-->\s*/, '');
   const out: string[] = [];
   for (const line of body.split('\n')) {
-    const names = [...line.matchAll(/\{\{(\w+)\}\}/g)].map((m) => m[1]);
+    const names = [...line.matchAll(/\{\{\??(\w+)\}\}/g)].map((m) => m[1]);
     if (names.some((n) => !values[n])) continue;
-    out.push(line.replace(/\{\{(\w+)\}\}/g, (_m, n: string) => values[n]));
+    out.push(line.replace(/\{\{(\?)?(\w+)\}\}/g, (_m, flag: string | undefined, n: string) => (flag ? '' : values[n])));
   }
   return out.join('\n').replace(/\n{3,}/g, '\n\n').trim() + '\n';
 }
@@ -31,15 +32,18 @@ export function fill(template: string, values: Record<string, string>): string {
  */
 export function promptValues(ctx: Ctx, id: Identity = fromName(ctx.config.name)) {
   const s = ctx.settings();
-  const pub = ctx.config.publicUrl;
+  // LIFEOS_PUBLIC_URL, else the address learned from the owner's browser; until then the prompt
+  // says it is not known yet (ADR-104)
+  const pub = ctx.publicUrl() ?? '';
   const local = `http://localhost:${ctx.config.webPort}/lifeos`;
   return {
     docker_url: `http://${id.container}:8481`,
     container: id.container,
     network: id.network,
     public_url: pub,
+    no_public_url: pub ? '' : 'yes',
     // the same machine without Docker: only when it is not already the public address
-    local_url: pub.replace(/\/+$/, '') === local ? '' : local,
+    local_url: pub === local ? '' : local,
     timezone: ctx.tz(),
     quiet_start: s.quietStart,
     quiet_end: s.quietEnd,

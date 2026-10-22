@@ -27,7 +27,7 @@ services:
       LIFEOS_MODE: ${LIFEOS_MODE:-live}
       LIFEOS_TELEGRAM: ${LIFEOS_TELEGRAM:-on}
       LIFEOS_AI: ${LIFEOS_AI:-on}
-      LIFEOS_PUBLIC_URL: ${LIFEOS_PUBLIC_URL:-http://localhost:${LIFEOS_PORT:-8480}/lifeos}
+      LIFEOS_PUBLIC_URL: ${LIFEOS_PUBLIC_URL:-}
       LIFEOS_SEARXNG_URL: http://lifeos-searxng:8080
       LIFEOS_SETUP_SEED: ${LIFEOS_SETUP_SEED:-}
       LIFEOS_NAME: ${LIFEOS_NAME:-lifeos}
