@@ -27,7 +27,7 @@ export function MoveSheetHost() {
   };
   const what = r.items.length === 1 ? r.items[0].label : `${r.items.length} ${r.kind === 'task' ? 'tasks' : r.kind === 'item' ? 'items' : 'notes'}`;
   return (
-    <Sheet open onClose={() => close(false)} title={`Move ${r.items.length === 1 ? '' : what}`.trim()} testId="move-sheet">
+    <Sheet open onClose={() => close(false)} title={`Move ${r.items.length === 1 ? '' : what}`.trim()} testId="move-sheet" dock={false}>
       {r.items.length === 1 && <p className="sheet-task-title">{what}</p>}
       {r.kind === 'task' && <MoveTask items={r.items} close={close} />}
       {r.kind === 'item' && <MoveItem items={r.items} from={r.from as 'shopping' | 'wishlist'} close={close} />}

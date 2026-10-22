@@ -3,7 +3,8 @@
  * with the timed events from the weekly note between them (all-day ones on top) and "now" marked
  * on today; then the tasks due, the habits due with how each went (the day's streak mark beside
  * them, §4), and progress chips for the goals the day's tasks serve. Swipe sideways or use the
- * arrows for the next and previous day.
+ * arrows for the next and previous day. On the big screen (round 8f) the day is a time grid, and
+ * the tasks, habits and goal chips sit beside it in the Calendar's side panel (DayAside).
  */
 import { useEffect, useRef } from 'react';
 import { FIVE, hm12, PRAYER_LABELS } from '@lifeos/shared';
@@ -16,6 +17,7 @@ import { Curtained } from '../../components/Private';
 import type { CalendarDay, EventItem } from '../../lib/types';
 import { useGo } from '../../shell/context';
 import { DayMarkButton, EventRow, habitValueLabel, useVisibleHabits } from './parts';
+import { TimeGrid } from './TimeGrid';
 
 const toMin = (hm: string) => Number(hm.slice(0, 2)) * 60 + Number(hm.slice(3, 5));
 
@@ -72,10 +74,100 @@ function useDaySwipe(ref: React.RefObject<HTMLElement | null>, onSwipe: (dir: 1 
   }, [ref]);
 }
 
-export function DayView({ data, nowHm, onMove, contentRef }: { data: CalendarDay | null; nowHm: string; onMove: (dir: 1 | -1) => void; contentRef: React.RefObject<HTMLDivElement | null> }) {
+/** The goals the day's tasks serve, as progress chips (§4). */
+function GoalChips({ data }: { data: CalendarDay }) {
   const go = useGo();
+  if (data.goals.length === 0) return null;
+  return (
+    <div className="goal-chips" aria-label="Goals these tasks serve">
+      {data.goals.map((g) => (
+        <button key={g.slug} type="button" className="goal-chip" onClick={() => go(`/goals/${g.slug}`)} data-testid="goal-chip">
+          <span className="goal-chip-title">{g.title}</span>
+          <span className="goal-chip-n num">
+            {g.done} of {g.total}
+          </span>
+          <span className="goal-chip-bar" aria-hidden>
+            <span style={{ transform: `scaleX(${g.total ? g.done / g.total : 0})` }} />
+          </span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
+/** The tasks due that day, open first. */
+function DayTasks({ data }: { data: CalendarDay }) {
+  const open = data.tasks.filter((t) => t.status === 'open');
+  const done = data.tasks.filter((t) => t.status === 'done');
+  return (
+    <section className="card" aria-labelledby="day-due-h" data-testid="day-tasks">
+      <div className="card-head">
+        <h2 id="day-due-h">Due</h2>
+        {data.tasks.length > 0 && <span className="card-aside">{done.length ? `${done.length} of ${data.tasks.length} done` : data.tasks.length}</span>}
+      </div>
+      {data.tasks.length === 0 ? (
+        <p className="empty">No tasks due this day.</p>
+      ) : (
+        <SelectScope.Provider value={`day:${data.date}`}>
+          <div className="rows">
+            {[...open, ...done].map((t) => (
+              <TaskRow key={t.id} task={t} today={data.today} />
+            ))}
+          </div>
+        </SelectScope.Provider>
+      )}
+    </section>
+  );
+}
+
+/** The habits due that day and how each went (logged here on today), with the day's streak mark. */
+function DayHabits({ data }: { data: CalendarDay }) {
+  const { hidePrivate } = useVisibleHabits(data.habits);
+  if (data.habits.length === 0) return null;
+  const isToday = data.date === data.today;
+  return (
+    <section className="card" aria-labelledby="day-hab-h" data-testid="day-habits">
+      <div className="card-head">
+        <h2 id="day-hab-h">Habits</h2>
+        <DayMarkButton date={data.date} habits={data.habits} />
+      </div>
+      {isToday ? (
+        <div className="review-habits">
+          {data.habits.map((h) => (
+            <HabitLogRow key={h.path} h={{ ...h, status: 'active', started: null, why: null, scheduledToday: true, today: h.value, best: 0, logs: [] }} />
+          ))}
+        </div>
+      ) : (
+        <ul className="habit-day-list">
+          {data.habits.map((h) => (
+            <Curtained as="li" key={h.path} isPrivate={h.private} data-value={h.value ?? 'none'} aria-label={h.private && hidePrivate ? PRIVATE_LABEL : h.title}>
+              <span>{h.title}</span>
+              <span className={`tag${h.value === 'clean' ? ' goal' : h.value === 'slip' ? ' due-over' : ''}`}>{data.date > data.today ? 'Due' : habitValueLabel(h)}</span>
+            </Curtained>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+/**
+ * The Day view's side panel on the big screen (round 8f): the goal chips, the tasks due and the
+ * habits, beside the day's time grid.
+ */
+export function DayAside({ data }: { data: CalendarDay | null }) {
+  if (!data) return <div className="skeleton side-skeleton" aria-busy="true" />;
+  return (
+    <div className="day-aside" data-testid="day-aside" data-date={data.date}>
+      <GoalChips data={data} />
+      <DayTasks data={data} />
+      <DayHabits data={data} />
+    </div>
+  );
+}
+
+export function DayView({ data, nowHm, onMove, contentRef, desk = false, active = true }: { data: CalendarDay | null; nowHm: string; onMove: (dir: 1 | -1) => void; contentRef: React.RefObject<HTMLDivElement | null>; desk?: boolean; active?: boolean }) {
   useDaySwipe(contentRef, onMove);
-  const { hidePrivate } = useVisibleHabits(data?.habits ?? []);
   if (!data) {
     return (
       <div className="cal-day" ref={contentRef} data-testid="cal-day">
@@ -83,6 +175,13 @@ export function DayView({ data, nowHm, onMove, contentRef }: { data: CalendarDay
       </div>
     );
   }
+  // the big screen (round 8f): the day's hours, its prayers and events in them; the rest beside it
+  if (desk)
+    return (
+      <div className="cal-day cal-day-desk" ref={contentRef} data-testid="cal-day" data-date={data.date}>
+        <TimeGrid days={[data]} today={data.today} nowHm={nowHm} prayers tasks={false} selected={null} onSelect={noop} onOpen={noop} active={active} testId="day-grid" />
+      </div>
+    );
   const isToday = data.date === data.today;
   const timed: Item[] = [...FIVE.map((p) => ({ kind: 'prayer' as const, name: p, time: data.prayers[p] })), ...data.events.filter((e) => e.time).map((e) => ({ kind: 'event' as const, id: e.id, time: e.time!, text: e.text, e }))];
   if (isToday) timed.push({ kind: 'now', time: nowHm });
@@ -90,25 +189,9 @@ export function DayView({ data, nowHm, onMove, contentRef }: { data: CalendarDay
   const rank = (i: Item) => (i.kind === 'event' ? 0 : i.kind === 'prayer' ? 1 : 2);
   timed.sort((a, b) => toMin(a.time) - toMin(b.time) || rank(a) - rank(b));
   const allDay = data.events.filter((e) => !e.time);
-  const open = data.tasks.filter((t) => t.status === 'open');
-  const done = data.tasks.filter((t) => t.status === 'done');
   return (
     <div className="cal-day" ref={contentRef} data-testid="cal-day" data-date={data.date}>
-      {data.goals.length > 0 && (
-        <div className="goal-chips" aria-label="Goals these tasks serve">
-          {data.goals.map((g) => (
-            <button key={g.slug} type="button" className="goal-chip" onClick={() => go(`/goals/${g.slug}`)} data-testid="goal-chip">
-              <span className="goal-chip-title">{g.title}</span>
-              <span className="goal-chip-n num">
-                {g.done} of {g.total}
-              </span>
-              <span className="goal-chip-bar" aria-hidden>
-                <span style={{ transform: `scaleX(${g.total ? g.done / g.total : 0})` }} />
-              </span>
-            </button>
-          ))}
-        </div>
-      )}
+      <GoalChips data={data} />
       <section className="card" aria-labelledby="day-tl-h" data-testid="day-timeline">
         <div className="card-head">
           <h2 id="day-tl-h">Prayers and events</h2>
@@ -144,48 +227,11 @@ export function DayView({ data, nowHm, onMove, contentRef }: { data: CalendarDay
           )}
         </ol>
       </section>
-      <section className="card" aria-labelledby="day-due-h" data-testid="day-tasks">
-        <div className="card-head">
-          <h2 id="day-due-h">Due</h2>
-          {data.tasks.length > 0 && <span className="card-aside">{done.length ? `${done.length} of ${data.tasks.length} done` : data.tasks.length}</span>}
-        </div>
-        {data.tasks.length === 0 ? (
-          <p className="empty">No tasks due this day.</p>
-        ) : (
-          <SelectScope.Provider value={`day:${data.date}`}>
-            <div className="rows">
-              {[...open, ...done].map((t) => (
-                <TaskRow key={t.id} task={t} today={data.today} />
-              ))}
-            </div>
-          </SelectScope.Provider>
-        )}
-      </section>
-      {data.habits.length > 0 && (
-        <section className="card" aria-labelledby="day-hab-h" data-testid="day-habits">
-          <div className="card-head">
-            <h2 id="day-hab-h">Habits</h2>
-            <DayMarkButton date={data.date} habits={data.habits} />
-          </div>
-          {isToday ? (
-            <div className="review-habits">
-              {data.habits.map((h) => (
-                <HabitLogRow key={h.path} h={{ ...h, status: 'active', started: null, why: null, scheduledToday: true, today: h.value, best: 0, logs: [] }} />
-              ))}
-            </div>
-          ) : (
-            <ul className="habit-day-list">
-              {data.habits.map((h) => (
-                <Curtained as="li" key={h.path} isPrivate={h.private} data-value={h.value ?? 'none'} aria-label={h.private && hidePrivate ? PRIVATE_LABEL : h.title}>
-                  <span>{h.title}</span>
-                  <span className={`tag${h.value === 'clean' ? ' goal' : h.value === 'slip' ? ' due-over' : ''}`}>{data.date > data.today ? 'Due' : habitValueLabel(h)}</span>
-                </Curtained>
-              ))}
-            </ul>
-          )}
-        </section>
-      )}
+      <DayTasks data={data} />
+      <DayHabits data={data} />
       <p className="caption cal-hint">{motionReduced() ? 'Use the arrows for the next and previous day.' : 'Swipe sideways or use the arrows for the next and previous day.'}</p>
     </div>
   );
 }
+
+const noop = () => undefined;

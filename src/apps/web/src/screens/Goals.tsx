@@ -1,12 +1,16 @@
 /**
  * Goals (spec §4.3, §5.3, §5.4): goals with progress derived from @slug tasks, personal projects in
- * progress with their last activity, and the counters (§7). One primary action: New goal.
+ * progress with their last activity, and the counters (§7). One primary action: New goal. On the
+ * big screen (round 8f, ADR-107) it is master and detail: the goals and projects on the left, the
+ * one chosen (its tasks, adding one) in the side panel, which shows the counters while none is.
  */
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router';
 import { Archive, Pencil, Plus } from 'lucide-react';
 import { daysBetween, shortDateYear, todayIn } from '@lifeos/shared';
-import { Sheet } from '../components/ui';
+import { Sheet, useMedia } from '../components/ui';
+import { SidePanel } from '../components/SidePanel';
+import { WIDE } from '../lib/dock';
 import { TaskRow } from '../components/TaskRow';
 import { SwipeRow } from '../components/SwipeRow';
 import { archivePaths, useGone } from '../lib/edits';
@@ -55,7 +59,7 @@ function ago(iso: string, today: string): string {
   return d <= 0 ? 'Updated today' : d === 1 ? 'Updated yesterday' : `Updated ${d} days ago`;
 }
 
-function ItemCard({ it, today, kind }: { it: Item; today: string; kind: 'goal' | 'project' }) {
+function ItemCard({ it, today, kind, selected = false }: { it: Item; today: string; kind: 'goal' | 'project'; selected?: boolean }) {
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
   const gone = useGone();
@@ -72,7 +76,7 @@ function ItemCard({ it, today, kind }: { it: Item; today: string; kind: 'goal' |
           { label: 'Archive', icon: <Archive aria-hidden />, run: () => void archivePaths([{ path: it.path, label: it.title }]), tone: 'danger', testId: 'menu-archive' },
         ]}
       >
-        <button type="button" className="card goal-card" onClick={(e) => void drillIn(e.currentTarget, () => navigate(`/goals/${it.slug}`))} data-testid={`${kind}-card`}>
+        <button type="button" className={`card goal-card${selected ? ' is-selected' : ''}`} aria-current={selected ? 'true' : undefined} onClick={(e) => void drillIn(e.currentTarget, () => navigate(`/goals/${it.slug}`))} data-testid={`${kind}-card`}>
           <span className="goal-title">{it.title}</span>
           {it.why && <span className="secondary goal-why">{it.why}</span>}
           <Progress done={it.done} total={it.total} label={`${it.title}: ${it.done} of ${it.total} tasks done`} />
@@ -307,15 +311,8 @@ export function GoalsScreen() {
   const goals = data?.goals.filter((g) => g.status === 'active') ?? [];
   const projects = data?.projects.filter((p) => p.status === 'active') ?? [];
   const rest = [...(data?.goals.filter((g) => g.status !== 'active') ?? []), ...(data?.projects.filter((p) => p.status !== 'active') ?? [])];
-  return (
-    <div className="page goals" data-testid="goals">
-      <div className="page-head">
-        <h1>Goals</h1>
-        <button type="button" className="btn btn-primary" onClick={() => setCreating(true)} data-testid="new-goal-button">
-          <Plus aria-hidden /> New goal
-        </button>
-      </div>
-      {data && (
+  const desk = useMedia(WIDE);
+  const counters = data && (
         <dl className="counter-strip" data-testid="counters">
           <div>
             <dt>Done today</dt>
@@ -330,7 +327,18 @@ export function GoalsScreen() {
             <dd className="num">{data.counters.longestStreak}</dd>
           </div>
         </dl>
-      )}
+  );
+  const head = (
+    <div className="page-head">
+      <h1>Goals</h1>
+      <button type="button" className="btn btn-primary" onClick={() => setCreating(true)} data-testid="new-goal-button">
+        <Plus aria-hidden /> New goal
+      </button>
+    </div>
+  );
+  const list = (
+    <>
+      {!desk && counters}
       {data && goals.length === 0 && (
         <section className="card">
           <p className="secondary">No active goals yet. A goal is ongoing or long; something with an end state is a project in Projects/.</p>
@@ -338,7 +346,7 @@ export function GoalsScreen() {
       )}
       <div className="stack">
         {goals.map((g) => (
-          <ItemCard key={g.slug} it={g} today={data!.today} kind="goal" />
+          <ItemCard key={g.slug} it={g} today={data!.today} kind="goal" selected={desk && g.slug === slug} />
         ))}
       </div>
       {projects.length > 0 && (
@@ -346,7 +354,7 @@ export function GoalsScreen() {
           <h2 className="section-title">Projects in progress</h2>
           <div className="stack">
             {projects.map((p) => (
-              <ItemCard key={p.slug} it={p} today={data!.today} kind="project" />
+              <ItemCard key={p.slug} it={p} today={data!.today} kind="project" selected={desk && p.slug === slug} />
             ))}
           </div>
         </>
@@ -359,9 +367,24 @@ export function GoalsScreen() {
       {others && (
         <div className="stack">
           {rest.map((p) => (
-            <ItemCard key={p.slug} it={p} today={data!.today} kind={p.path.startsWith('Projects/') ? 'project' : 'goal'} />
+            <ItemCard key={p.slug} it={p} today={data!.today} kind={p.path.startsWith('Projects/') ? 'project' : 'goal'} selected={desk && p.slug === slug} />
           ))}
         </div>
+      )}
+    </>
+  );
+  return (
+    <div className={`page goals${desk ? ' goals-desk' : ''}`} data-testid="goals">
+      {head}
+      {desk ? <div className="goals-main">{list}</div> : list}
+      {desk && (
+        <SidePanel label="The goal chosen" testId="goals-panel">
+          <section className="card goals-aside" aria-labelledby="ga-h" data-testid="goals-aside">
+            <h2 id="ga-h">Progress</h2>
+            {counters}
+            <p className="caption">Choose a goal or a project to see its tasks and add one; it opens here, beside the list.</p>
+          </section>
+        </SidePanel>
       )}
       <NewGoal open={creating} onClose={() => setCreating(false)} />
       {slug && <GoalDetail slug={slug} onClose={() => navigate('/goals')} />}

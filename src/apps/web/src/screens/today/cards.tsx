@@ -338,9 +338,10 @@ export function CheckinCard({ today, moment, rows = ['sleep', 'workout', 'prayer
 
 // ------------------------------------------------------------------ the chip strip
 
-export function ChipStrip({ today }: { today: Today }) {
+export function ChipStrip({ today, habits = true }: { today: Today; habits?: boolean }) {
   const go = useGo();
-  const habitsDue = today.habits.filter((h) => !h.today).length;
+  // the big screen shows the habits beside the moment (HabitsCard): no chip for them there
+  const habitsDue = habits ? today.habits.filter((h) => !h.today).length : 0;
   const chips = [
     { n: today.events.today.length, one: 'event', many: 'events', icon: <CalendarDays />, to: '/calendar?view=day', id: 'events' },
     { n: habitsDue, one: 'habit to log', many: 'habits to log', icon: <Flame />, to: '/habits', id: 'habits' },
@@ -486,7 +487,7 @@ export function HabitLogRow({ h, onLogged }: { h: Habit; onLogged?: (extended: b
   );
 }
 
-export function ReviewCard({ today }: { today: Today }) {
+export function ReviewCard({ today, habits = true }: { today: Today; habits?: boolean }) {
   const pending = usePending();
   const [showDone, setShowDone] = useState(false);
   const [showSlipped, setShowSlipped] = useState(false);
@@ -517,13 +518,34 @@ export function ReviewCard({ today }: { today: Today }) {
           {today.overdue.length ? today.overdue.map((t) => <TaskRow key={t.id} task={t} today={today.date} />) : <p className="empty">Nothing overdue.</p>}
         </div>
       )}
-      {today.habits.length > 0 && (
+      {habits && today.habits.length > 0 && (
         <div className="review-habits">
           {today.habits.map((h) => (
             <HabitLogRow key={h.path} h={h} onLogged={(ext, el) => ext && rewardBig(el)} />
           ))}
         </div>
       )}
+    </section>
+  );
+}
+
+/** Today's habits, logged in one tap (the big screen's second column, round 8f). */
+export function HabitsCard({ today }: { today: Today }) {
+  if (today.habits.length === 0) return null;
+  const logged = today.habits.filter((h) => h.today).length;
+  return (
+    <section className="card" aria-labelledby="th-h" data-testid="today-habits">
+      <div className="card-head">
+        <h2 id="th-h">Habits</h2>
+        <span className="card-aside">
+          {logged} of {today.habits.length} logged
+        </span>
+      </div>
+      <div className="review-habits">
+        {today.habits.map((h) => (
+          <HabitLogRow key={h.path} h={h} onLogged={(ext, el) => ext && rewardBig(el)} />
+        ))}
+      </div>
     </section>
   );
 }

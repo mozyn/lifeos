@@ -82,10 +82,9 @@ about 1 GB of memory free while it downloads the images.
      (ZimaOS), `/mnt/<pool>/notes` (TrueNAS) or `/mnt/user/notes` (Unraid). An empty folder gets
      the starter notes on the first start; a folder with anything in it is never changed that way.
    - `LIFEOS_BIND=0.0.0.0`, so your phone and computers on the home network can open it.
-   - `LIFEOS_UID` and `LIFEOS_GID`: the owner of the notes folder, whom LifeOS writes as. ZimaOS:
-     usually `1000` and `1000`. TrueNAS: the apps user, `568` and `568` (or the dataset's owner).
-     Unraid: `99` and `100`. Not sure? Deploy with the defaults: if LifeOS cannot write the
-     folder, the `lifeos-api` log in Dockge says so and names the owner it found.
+   - Nothing for the folder's owner: LifeOS writes your notes as whoever owns the folder
+     (TrueNAS's apps user 568, Unraid's 99:100, ZimaOS's 1000), so the files stay theirs. See
+     "LifeOS can't save to your notes folder" below if it ever says otherwise.
    - Optional: `TZ`, your time zone (for example `America/Toronto`), so the starter notes are
      dated your today; the first run asks where you are anyway.
 4. Press **Deploy**. The first run downloads the images (a few minutes); the three
@@ -102,10 +101,10 @@ Dockge shows the stack as running. Port 8480 taken? Set `LIFEOS_PORT` to a free 
 ### Without Dockge
 
 - **A shell on the NAS** (SSH, or the NAS's own terminal), anywhere: copy the folder, set the
-  same three values in its `.env`, then in the folder run `docker compose up -d`.
+  same two values in its `.env`, then in the folder run `docker compose up -d`.
 - **ZimaOS, without Dockge**: App Store → **Install a customized app** (the **+** at the top) →
   **Import** → paste `compose.yaml`. It does not read this folder's `.env` and keeps the compose
-  file elsewhere: paste the values (the notes folder, the bind, the uid/gid) where the
+  file elsewhere: paste the values (the notes folder, the bind) where the
   compose now pulls its images, so nothing else in the folder is needed). Dockge does all of
   that for you.
 - **TrueNAS Apps, "Install via YAML" (a custom app)**: it can pull the images, so this may work
@@ -328,15 +327,45 @@ changes the one line it is working on, and refuses (rather than guesses) if the 
 Why no database of its own for your data? The folder already is a complete, readable store that
 any editor and any backup tool understands, and LifeOS's database is rebuilt from it at any time.
 
+### LifeOS can't save to your notes folder
+
+LifeOS writes your notes as the notes folder's owner: at each start it looks at who owns the
+folder (TrueNAS's apps user 568, Unraid's 99:100, your own user on a computer) and runs as that
+user, so new and changed notes stay theirs. It never runs as root: a folder that belongs to root
+gets user 1000. `LIFEOS_UID` and `LIFEOS_GID` in `.env`, when you set them, choose the user
+instead. The `lifeos-api` log says whom it chose (in Dockge, the stack's log):
+`lifeos-api: running as 568:568 (the owner of the notes folder)`.
+
+When it still cannot save, every screen shows "Can't save to your notes." with a link
+here, and each change you try says why: whose the folder is, which user LifeOS runs as, and what
+to do. Reading, search and everything else keep working meanwhile. The fixes:
+
+- **It belongs to another user** ("it belongs to user 568, LifeOS runs as 1000"): remove
+  `LIFEOS_UID` and `LIFEOS_GID` from `.env` (or set them to the owner it names) and deploy again.
+  An older `compose.yaml` has a `user:` line under `api:`: delete that line (or put the owner on
+  it, `"568:568"`), or use the current `compose.yaml`.
+- **It belongs to root**: Docker makes the folder, empty and root's, when `LIFEOS_VAULT_HOST`
+  names one that does not exist: check the path. A share of root's: give it to the user whose
+  notes these are (on the NAS, for example `chown -R 1000:1000 /mnt/tank/notes`), then restart
+  LifeOS.
+- **A folder inside it belongs to someone else** ("Areas" in it belongs to user 568): give the
+  whole notes folder to one owner, for example `chown -R 568:568 /mnt/tank/notes`.
+- **It is mounted read-only**: no `:ro` after the notes folder in `compose.yaml`; on a NAS, a
+  share or dataset that allows writing (TrueNAS: the dataset's permissions; Unraid: the share's
+  settings). Then restart LifeOS.
+- **Its owner may not write it** ("belongs to user 1000, the user LifeOS runs as, but does not
+  allow writing"): on the NAS, `chmod -R u+rwX` the notes folder, or fix the share's
+  permissions.
+
 ## Trouble?
 
 - **"Port 8480 is in use"**: set `LIFEOS_PORT=8490` (any free port) in `.env`, then
   `docker compose -p lifeos up -d`; open `http://localhost:8490/lifeos/`.
-- **"is not writable" or notes do not change**: LifeOS writes your notes as the user in `.env`
-  (`LIFEOS_UID`, `LIFEOS_GID`; install.sh fills them in from `id -u` and `id -g`). Set them to the
-  notes folder's owner: the `api` container's log says at start whom it found (in Dockge, the
-  stack's log; in a shell, `docker compose -p lifeos logs api`). On a NAS see step 3 of "Dockge,
-  step by step".
+- **"LifeOS can't save to your notes"**, or notes do not change: see "LifeOS can't save to your
+  notes folder" above. LifeOS writes as the folder's owner unless `.env` sets `LIFEOS_UID` and
+  `LIFEOS_GID` (install.sh fills them in from `id -u` and `id -g`); the `api` container's log says
+  at start whom it runs as (in Dockge, the stack's log; in a shell,
+  `docker compose -p lifeos logs api`).
 - **The starter notes did not appear**: they go only into a folder that is empty (what a NAS
   leaves, like `.DS_Store` or `@eaDir`, does not count) on LifeOS's very first start;
   `LIFEOS_STARTER=off` turns them off. A folder that did not exist when you deployed is made by

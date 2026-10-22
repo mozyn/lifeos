@@ -3,7 +3,7 @@
  * rises from the bottom on phones, drag to dismiss), Segmented (sliding lens pill), Switch (iOS 26:
  * tinted-glass track, white knob), Slider (glass thumb), plus toasts and a media-query hook.
  */
-import { type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type RefObject, useCallback, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { type KeyboardEvent as ReactKeyboardEvent, type ReactNode, type RefObject, useCallback, useContext, useEffect, useId, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createPortal } from 'react-dom';
 import { ChevronDown, X } from 'lucide-react';
 import { Glass } from '../glass/Glass';
@@ -14,6 +14,8 @@ import { dismissToast, useToasts } from '../lib/store';
 import { onVisibleChange, type Visible, visible } from '../lib/viewport';
 import { claimDrill, drillOut } from '../lib/transitions';
 import { scrollMotion } from '../lib/panes';
+import { claimDock, DockedCtx, dockOf, paneFor, useDocks, WIDE } from '../lib/dock';
+import { PaneCtx } from '../shell/context';
 
 const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
 
@@ -283,19 +285,30 @@ function useHeldHeight(sheet: RefObject<HTMLElement | null>, body: RefObject<HTM
  * `list`: the body scrolls a long list (the search results, round 8). The glass stays on the head
  * (grabber, title, tools) and the body sits on the sheet's tint made opaque, so a scroll inside the
  * sheet re-filters no backdrop; the radius, rim and shadow are the sheet's own.
+ * Wide screens (round 8f, lib/dock.ts): while the screen it belongs to has a side panel, the sheet
+ * is laid out there instead (a solid region beside the content, not modal: no dim, no trap; Escape
+ * and Close still close it), one at a time; `dock={false}` keeps it a centred dialog.
  */
-export function Sheet(props: { open: boolean; onClose: () => void; title: ReactNode; children: ReactNode; footer?: ReactNode; tools?: ReactNode; className?: string; initialFocus?: string; testId?: string; list?: boolean }) {
+export function Sheet(props: { open: boolean; onClose: () => void; title: ReactNode; children: ReactNode; footer?: ReactNode; tools?: ReactNode; className?: string; initialFocus?: string; testId?: string; list?: boolean; dock?: boolean }) {
   const ref = useRef<HTMLElement | null>(null);
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const bodyRef = useRef<HTMLDivElement | null>(null);
   const id = useId();
+  // wide screens (round 8f, lib/dock.ts): the sheet takes the screen's side panel when it has one
+  const own = useContext(PaneCtx);
+  const nested = useContext(DockedCtx);
+  const wide = useMedia(WIDE);
+  useDocks();
+  const slot = props.open && wide && !nested && props.dock !== false ? dockOf(paneFor(own)) : null;
+  const docked = !!slot;
   useFocusTrap(ref, props.open, props.initialFocus);
   const close = useRef(props.onClose);
   close.current = props.onClose;
   const dismiss = useCallback(() => close.current(), []);
-  useSheetDrag(ref, props.open, dismiss);
-  const moving = useHeldHeight(ref, bodyRef, props.open, !!props.list);
-  useFitToVisible(overlayRef, ref, props.open, moving);
+  useSheetDrag(ref, props.open && !docked, dismiss);
+  useLayoutEffect(() => (slot ? claimDock(slot, dismiss) : undefined), [slot, dismiss]);
+  const moving = useHeldHeight(ref, bodyRef, props.open && !docked, !!props.list);
+  useFitToVisible(overlayRef, ref, props.open && !docked, moving);
   // a sheet that grew from a row (a drill-in) shrinks back into it when closed (UI brief 2 §3)
   useLayoutEffect(() => {
     if (props.open && ref.current) claimDrill(ref.current);
@@ -304,7 +317,7 @@ export function Sheet(props: { open: boolean; onClose: () => void; title: ReactN
   const list = !!props.list;
   useLayoutEffect(() => {
     const el = ref.current;
-    if (!props.open || !el) return;
+    if (!props.open || !el || docked) return;
     const body = bodyRef.current;
     let head = '';
     const ro = new ResizeObserver(() => {
@@ -323,8 +336,41 @@ export function Sheet(props: { open: boolean; onClose: () => void; title: ReactN
     ro.observe(el);
     if (list && body) ro.observe(body);
     return () => ro.disconnect();
-  }, [props.open, list]);
+  }, [props.open, list, docked]);
   if (!props.open) return null;
+  if (slot)
+    return createPortal(
+      <DockedCtx.Provider value>
+        <section
+          ref={ref}
+          className={`dock-sheet${props.tools ? ' has-tools' : ''}${props.footer ? ' has-foot' : ''}${props.className ? ` ${props.className}` : ''}`}
+          role="region"
+          aria-labelledby={id}
+          data-testid={props.testId}
+          data-docked=""
+          tabIndex={-1}
+          onKeyDown={(e: ReactKeyboardEvent) => {
+            if (e.key === 'Escape') {
+              e.stopPropagation();
+              requestClose();
+            }
+          }}
+        >
+          <h2 className="sheet-title" id={id}>
+            {props.title}
+          </h2>
+          {props.tools && <div className="sheet-tools">{props.tools}</div>}
+          <button className="icon-btn sheet-close" onClick={requestClose} aria-label="Close">
+            <X />
+          </button>
+          <div className="sheet-body" ref={bodyRef}>
+            {props.children}
+          </div>
+          {props.footer && <div className="sheet-foot">{props.footer}</div>}
+        </section>
+      </DockedCtx.Provider>,
+      slot,
+    );
   return createPortal(
     <div
       className="overlay"

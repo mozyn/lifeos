@@ -4,20 +4,28 @@
  * dates, prayers and Hijri dates are computed, and the habit streak marks are derived from the logs
  * (§4). One primary action on all three: Add event. The views stay mounted and cross-fade like the
  * Lists segments (lib/segments.ts); prev/next slide the view's days.
+ * The big screen (round 8f, ADR-107): Month's grid fills the screen with tall cells, Week and Day
+ * are time grids, and a side panel beside the grid shows what is clicked (a day, an event, a task)
+ * instead of a sheet; Day's panel holds the day's tasks and habits. Keys: D, W, M, ← →, T.
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { addDays, addMonths, dateRange, hijriSpan, isIsoDate, isoWeek, longDate, mondayOf, monthYear, todayIn } from '@lifeos/shared';
-import { Segmented } from '../../components/ui';
+import { Segmented, useMedia } from '../../components/ui';
+import { SidePanel } from '../../components/SidePanel';
 import { useResource } from '../../lib/store';
+import { closeDocked, WIDE } from '../../lib/dock';
+import { isShortcut } from '../../lib/keys';
+import { activePane } from '../../lib/panes';
 import { setSegState, switchSegment, warmSegments } from '../../lib/segments';
 import { transition, until } from '../../lib/transitions';
 import type { CalendarDay, CalendarMonth, Week } from '../../lib/types';
 import { TopBarSlot } from '../../shell/context';
 import { useNow } from '../today/Today';
 import { AddEvent } from './parts';
-import { DayView } from './DayView';
+import { DayAside, DayView } from './DayView';
+import { DayDetail } from './DayPanel';
 import { MonthView } from './MonthView';
 import { WeekView } from './WeekView';
 
@@ -61,6 +69,9 @@ export function CalendarScreen() {
   const [prayers, setPrayers] = useState<'on' | 'off'>(() => (localStorage.getItem('lifeos.week.prayers') === 'off' ? 'off' : 'on'));
   useEffect(() => localStorage.setItem('lifeos.week.prayers', prayers), [prayers]);
   const [adding, setAdding] = useState(false);
+  // the big screen: the day (and the item in it) the side panel shows in Week and Month
+  const desk = useMedia(WIDE);
+  const [sel, setSel] = useState<{ date: string; item: string | null } | null>(null);
 
   const bodyRef = useRef<HTMLDivElement>(null);
   const dayRef = useRef<HTMLDivElement>(null);
@@ -108,6 +119,7 @@ export function CalendarScreen() {
   /** Prev/next/today: the view's days slide toward the new date; the header and buttons stay. */
   const move = (next: string) => {
     if (next === d) return;
+    setSel(null);
     const scope = view === 'day' ? dayRef.current : view === 'week' ? weekRef.current : monthRef.current;
     const key = view === 'day' ? next : view === 'week' ? mondayOf(next) : next.slice(0, 7);
     const attr = view === 'day' ? 'date' : view === 'week' ? 'start' : 'month';
@@ -133,6 +145,40 @@ export function CalendarScreen() {
     setParams(address('day', date));
   };
 
+  /** The big screen: a day chosen in Week or Month opens in the side panel; chosen again, in Day. */
+  const select = (date: string) => {
+    if (sel?.date === date && !sel.item) {
+      openDay(date);
+      return;
+    }
+    closeDocked('calendar');
+    setSel({ date, item: null });
+  };
+  const selectItem = (date: string, item: string) => {
+    closeDocked('calendar');
+    setSel({ date, item });
+  };
+  const itemDone = useCallback(() => setSel((x) => (x?.item ? { ...x, item: null } : x)), []);
+
+  // keys (round 8f): D, W and M for the views, the arrows for the previous and next, T for today
+  const keys = useRef({ pickView, step, move, today });
+  keys.current = { pickView, step, move, today };
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (activePane() !== 'calendar' || !isShortcut(e)) return;
+      const k = keys.current;
+      const t = e.target instanceof Element ? e.target : null;
+      const key = e.key.toLowerCase();
+      if (key === 'd' || key === 'w' || key === 'm') k.pickView(key === 'd' ? 'day' : key === 'w' ? 'week' : 'month');
+      else if (key === 't') k.move(k.today);
+      else if ((e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !t?.closest('.segmented, [role="radiogroup"], [role="menu"], .side-panel')) k.step(e.key === 'ArrowLeft' ? -1 : 1);
+      else return;
+      e.preventDefault();
+    };
+    window.addEventListener('keydown', down);
+    return () => window.removeEventListener('keydown', down);
+  }, []);
+
   let title: string;
   let sub: string | null = null;
   let above: string | null = null;
@@ -150,7 +196,7 @@ export function CalendarScreen() {
   const unit = view === 'day' ? 'day' : view === 'week' ? 'week' : 'month';
 
   return (
-    <div className="page calendar" data-testid="calendar" data-view={view}>
+    <div className="page calendar" data-testid="calendar" data-view={view} data-desk={desk ? '' : undefined}>
       <TopBarSlot>
         <Segmented label="Calendar view" onGlass value={view} onChange={pickView} options={VIEWS.map((v) => ({ ...v, testId: `cal-view-${v.value}` }))} testId="cal-view" />
       </TopBarSlot>
@@ -180,7 +226,7 @@ export function CalendarScreen() {
         <button type="button" className="btn btn-primary" onClick={() => setAdding(true)} data-testid="add-event">
           <Plus aria-hidden /> Add event
         </button>
-        {view === 'week' && (
+        {(view === 'week' || (desk && view === 'month')) && (
           <Segmented
             label="Prayer times"
             value={prayers}
@@ -192,24 +238,29 @@ export function CalendarScreen() {
           />
         )}
       </div>
-      <div className="cal-body" ref={bodyRef}>
-        {has.has('day') && (
-          <section className="seg-pane" data-seg="day" ref={refs.day} aria-label="Day">
-            <DayView data={day.data?.date === d ? day.data : null} nowHm={nowHm} onMove={(dir) => step(dir)} contentRef={dayRef} />
-          </section>
-        )}
-        {has.has('week') && (
-          <section className="seg-pane" data-seg="week" ref={refs.week} aria-label="Week">
-            <WeekView data={week.data?.start === start ? week.data : null} today={today} start={start} prayers={prayers === 'on'} thisWeek={start === mondayOf(today)} onOpen={openDay} daysRef={weekRef} active={view === 'week'} />
-          </section>
-        )}
-        {has.has('month') && (
-          <section className="seg-pane" data-seg="month" ref={refs.month} aria-label="Month">
-            <MonthView data={month.data?.month === ym ? month.data : null} ym={ym} today={today} onOpen={openDay} gridRef={monthRef} active={view === 'month'} />
-          </section>
-        )}
+      <div className="cal-split">
+        <div className="cal-body" ref={bodyRef}>
+          {has.has('day') && (
+            <section className="seg-pane" data-seg="day" ref={refs.day} aria-label="Day">
+              <DayView data={day.data?.date === d ? day.data : null} nowHm={nowHm} onMove={(dir) => step(dir)} contentRef={dayRef} desk={desk} active={view === 'day'} />
+            </section>
+          )}
+          {has.has('week') && (
+            <section className="seg-pane" data-seg="week" ref={refs.week} aria-label="Week">
+              <WeekView data={week.data?.start === start ? week.data : null} today={today} start={start} prayers={prayers === 'on'} thisWeek={start === mondayOf(today)} onOpen={openDay} daysRef={weekRef} active={view === 'week'} desk={desk} nowHm={nowHm} selected={sel?.date ?? null} onSelect={select} />
+            </section>
+          )}
+          {has.has('month') && (
+            <section className="seg-pane" data-seg="month" ref={refs.month} aria-label="Month">
+              <MonthView data={month.data?.month === ym ? month.data : null} ym={ym} today={today} onOpen={openDay} gridRef={monthRef} active={view === 'month'} desk={desk} selected={sel?.date ?? null} onSelect={select} onItem={selectItem} prayers={prayers === 'on'} />
+            </section>
+          )}
+        </div>
+        <SidePanel label="Calendar details" testId="cal-panel">
+          {view === 'day' ? <DayAside data={day.data?.date === d ? day.data : null} /> : sel ? <DayDetail date={sel.date} item={sel.item} onItemDone={itemDone} onOpenDay={() => openDay(sel.date)} onClose={() => setSel(null)} nowHm={nowHm} /> : null}
+        </SidePanel>
       </div>
-      <AddEvent open={adding} onClose={() => setAdding(false)} initialDate={view === 'week' ? (start <= today && today <= addDays(start, 6) ? today : start) : view === 'month' ? (ym === today.slice(0, 7) ? today : `${ym}-01`) : d} />
+      <AddEvent open={adding} onClose={() => setAdding(false)} initialDate={desk && sel && view !== 'day' ? sel.date : view === 'week' ? (start <= today && today <= addDays(start, 6) ? today : start) : view === 'month' ? (ym === today.slice(0, 7) ? today : `${ym}-01`) : d} />
     </div>
   );
 }

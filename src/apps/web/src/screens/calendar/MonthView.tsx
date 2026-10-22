@@ -4,10 +4,15 @@
  * mark (a flame when every habit due was kept, a muted mark for a slip); today has a ring.
  * Tapping a day opens a small glass popover anchored to it (round-3 brief §2, ADR-64): that day's
  * events, tasks due and habit results; a second tap on the day, or "Open day", opens it in Day.
+ * On the big screen (round 8f, ADR-107) the grid fills the screen and each day is a tall cell that
+ * lists its events and tasks (as many as fit, then "+3") with its prayer marks (Fajr and Maghrib,
+ * computed on the device as the API does, spec §10); a click opens the day, or the event clicked,
+ * in the Calendar's side panel, and a second click on the day opens it in Day.
  */
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
-import { Flame } from 'lucide-react';
-import { habitKept, hm12, longDate, monthCells } from '@lifeos/shared';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { Flame, Sunrise, Sunset } from 'lucide-react';
+import { habitKept, hm12, longDate, monthCells, type PrayerMethod, prayerTimes } from '@lifeos/shared';
+import { useResource } from '../../lib/store';
 import { Glass } from '../../glass/Glass';
 import type { CalendarMonth } from '../../lib/types';
 import { habitValueLabel, useVisibleHabits } from './parts';
@@ -62,6 +67,66 @@ function Cell({ d, today, open, onTap }: { d: MonthDay; today: string; open: boo
         </span>
       )}
     </button>
+  );
+}
+
+const hmShort = (hm: string) => hm12(hm).replace(/ [AP]M$/, '');
+
+/** A day on the big screen: its number and Hijri day, its events and tasks as they fit, its prayer marks. */
+function TallCell({ d, today, selected, lines, prayer, onTap, onItem }: { d: MonthDay; today: string; selected: boolean; lines: number; prayer: { fajr: string; maghrib: string } | null; onTap: (date: string) => void; onItem: (date: string, id: string) => void }) {
+  const { mark } = useVisibleHabits(d.habits);
+  const isToday = d.date === today;
+  const events = [...(d.list?.events ?? [])].sort((a, b) => (a.time ?? '').localeCompare(b.time ?? ''));
+  const tasks = d.list?.tasks ?? [];
+  const n = events.length + tasks.length;
+  const fit = n > lines ? Math.max(0, lines - 1) : n;
+  const evs = events.slice(0, fit);
+  const ts = tasks.slice(0, Math.max(0, fit - evs.length));
+  const parts = [longDate(d.date), `${d.hijriDay} ${d.hijriMonth}`];
+  if (d.events) parts.push(`${d.events} ${d.events === 1 ? 'event' : 'events'}`);
+  if (d.tasks) parts.push(`${d.tasks} ${d.tasks === 1 ? 'task' : 'tasks'} due`);
+  if (mark === 'streak') parts.push('every habit kept');
+  if (mark === 'slip') parts.push('a slip');
+  return (
+    <div role="gridcell" className={`mc mc-tall${isToday ? ' is-today' : ''}${d.date < today ? ' is-past' : ''}${selected ? ' is-selected' : ''}`} data-testid="month-day" data-date={d.date} aria-current={isToday ? 'date' : undefined}>
+      <button type="button" className="mc-hit" onClick={() => onTap(d.date)} aria-label={parts.join(', ')} aria-pressed={selected} data-testid="month-day-open" />
+      <span className="mc-top" aria-hidden>
+        <span className="mc-n num">{Number(d.date.slice(8))}</span>
+        <span className="mc-h num">{d.hijriDay === 1 ? `1 ${d.hijriMonth}` : d.hijriDay}</span>
+        {mark && (
+          <span className="mc-mark" data-mark={mark} data-testid="month-mark">
+            <Flame />
+          </span>
+        )}
+      </span>
+      <span className="mc-items">
+        {evs.map((e) => (
+          <button key={e.id} type="button" className="mc-ev" onClick={() => onItem(d.date, e.id)} data-testid="mc-event">
+            {e.time && <span className="mc-time num">{hmShort(e.time)}</span>}
+            <span className="mc-text">{e.text}</span>
+          </button>
+        ))}
+        {ts.map((t) => (
+          <button key={t.id} type="button" className={`mc-task${t.done ? ' done' : ''}`} onClick={() => onItem(d.date, t.id)} data-testid="mc-task">
+            <span className="mc-tick" aria-hidden />
+            <span className="mc-text">{t.title}</span>
+          </button>
+        ))}
+        {n > fit && (
+          <span className="mc-more" data-testid="mc-more">
+            +{n - fit}
+          </span>
+        )}
+      </span>
+      {prayer && (
+        <span className="mc-prayers" aria-label={`Fajr ${hm12(prayer.fajr)}, Maghrib ${hm12(prayer.maghrib)}`} data-testid="mc-prayers">
+          <Sunrise aria-hidden />
+          <span className="num">{hmShort(prayer.fajr)}</span>
+          <Sunset aria-hidden />
+          <span className="num">{hmShort(prayer.maghrib)}</span>
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -188,10 +253,47 @@ function DayPopover({ d, anchor, host, onOpenDay, onClose }: { d: MonthDay; anch
   );
 }
 
-export function MonthView({ data, ym, today, onOpen, gridRef, active = true }: { data: CalendarMonth | null; ym: string; today: string; onOpen: (date: string) => void; gridRef: React.RefObject<HTMLDivElement | null>; active?: boolean }) {
+/** Lines a tall cell's events and tasks take, from the cell's height (the big screen). */
+const CELL_TOP = 30;
+const CELL_FOOT = 22;
+const CELL_LINE = 22;
+
+export function MonthView({ data, ym, today, onOpen, gridRef, active = true, desk = false, selected = null, onSelect, onItem, prayers = true }: { data: CalendarMonth | null; ym: string; today: string; onOpen: (date: string) => void; gridRef: React.RefObject<HTMLDivElement | null>; active?: boolean; desk?: boolean; selected?: string | null; onSelect?: (date: string) => void; onItem?: (date: string, id: string) => void; prayers?: boolean }) {
   usePrivacy();
   const byDate = new Map((data?.days ?? []).map((d) => [d.date, d]));
   const [pop, setPop] = useState<{ date: string; anchor: HTMLElement } | null>(null);
+  // the big screen: as many lines as the cells have room for, and the prayer marks (spec §10: the
+  // browser computes prayer times as the API does, from the same settings)
+  const mgRef = useRef<HTMLDivElement>(null);
+  const [lines, setLines] = useState(3);
+  useLayoutEffect(() => {
+    const g = mgRef.current;
+    if (!desk || !g) return;
+    const fit = () => {
+      const cell = g.querySelector<HTMLElement>('.mc-tall');
+      if (!cell || !cell.clientHeight) return;
+      const n = Math.max(1, Math.floor((cell.clientHeight - CELL_TOP - (prayers ? CELL_FOOT : 4)) / CELL_LINE));
+      setLines((x) => (x === n ? x : n));
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(g);
+    return () => ro.disconnect();
+  }, [desk, prayers, data]);
+  const { data: settings } = useResource<{ settings: { prayer: { lat: number; lon: number; tz: string; method: PrayerMethod } } }>(desk && prayers ? 'api/settings' : null);
+  const place = settings?.settings.prayer;
+  // once per month and place, not on every render (42 days of adhan)
+  const marks = useMemo(() => {
+    const m = new Map<string, { fajr: string; maghrib: string }>();
+    if (!desk || !place) return m;
+    for (const date of monthCells(ym)) {
+      if (!date) continue;
+      const t = prayerTimes(date, place);
+      m.set(date, { fajr: t.fajr, maghrib: t.maghrib });
+    }
+    return m;
+  }, [desk, ym, place?.lat, place?.lon, place?.tz, place?.method]); // eslint-disable-line react-hooks/exhaustive-deps
+  const prayerOf = (date: string) => marks.get(date) ?? null;
   // another month, or another view: the popover goes
   useEffect(() => setPop(null), [ym, active]);
   const tap = (date: string, el: HTMLElement) => {
@@ -205,6 +307,44 @@ export function MonthView({ data, ym, today, onOpen, gridRef, active = true }: {
     setPop(null);
   };
   const popDay = pop ? byDate.get(pop.date) : undefined;
+  if (desk) {
+    const cells = monthCells(ym);
+    // a click on the chosen day again opens it in Day (a phone's second tap)
+    const tapDesk = (date: string) => (selected === date ? onOpen(date) : onSelect?.(date));
+    return (
+      <div className="cal-month cal-month-desk" ref={gridRef} data-month={data?.month ?? ''} data-testid="cal-month">
+        <div className="card month-card">
+          <div className="mg mg-tall" ref={mgRef} role="grid" aria-label={`Days of ${ym}`} style={{ '--weeks': cells.length / 7 } as React.CSSProperties}>
+            {DOW.map(([, l], i) => (
+              <span key={i} className="mg-dow" role="columnheader" aria-label={l}>
+                {l.slice(0, 3)}
+              </span>
+            ))}
+            {cells.map((date, i) => {
+              const d = date ? byDate.get(date) : undefined;
+              if (!date || !d) return <span key={`b${i}`} className="mc-blank" aria-hidden />;
+              return <TallCell key={date} d={d} today={today} selected={selected === date} lines={lines} prayer={prayers ? prayerOf(date) : null} onTap={tapDesk} onItem={(x, id) => onItem?.(x, id)} />;
+            })}
+          </div>
+        </div>
+        <p className="caption month-legend" aria-hidden>
+          {prayers && (
+            <>
+              <Sunrise className="legend-icon" /> Fajr <Sunset className="legend-icon" /> Maghrib{' '}
+            </>
+          )}
+          <span className="mc-mark" data-mark="streak">
+            <Flame />
+          </span>{' '}
+          every habit kept{' '}
+          <span className="mc-mark" data-mark="slip">
+            <Flame />
+          </span>{' '}
+          a slip. Click a day for all of it; click it again to open it.
+        </p>
+      </div>
+    );
+  }
   return (
     <div className="cal-month" ref={gridRef} data-month={data?.month ?? ''} data-testid="cal-month">
       <div className="card month-card">

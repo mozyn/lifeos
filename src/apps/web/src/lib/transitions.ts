@@ -183,13 +183,13 @@ export async function drillIn(from: Element | null, open: () => void | Promise<v
       src.style.viewTransitionName = '';
       drillPending = true;
       flushSync(() => void open());
-      await until(() => !!document.querySelector(`.sheet[data-drill]`), 300);
+      await until(() => !!document.querySelector('.sheet[data-drill], .dock-sheet[data-drill]'), 300);
       drillPending = false;
     },
   });
   // the shared name lives only for the transition: a named element is captured in isolation,
   // and glass inside it would lose its backdrop
-  void waitTransitionEnd().then(() => document.querySelector<HTMLElement>('.sheet[data-drill]')?.style.removeProperty('view-transition-name'));
+  void waitTransitionEnd().then(() => document.querySelector<HTMLElement>('.sheet[data-drill], .dock-sheet[data-drill]')?.style.removeProperty('view-transition-name'));
 }
 
 /** Sheet: is this sheet the end of a drill-in? (called once, when it opens) */

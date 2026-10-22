@@ -1,0 +1,1327 @@
+/* ------------------------------------------------------------------ the big screen (round 8f)
+   docs/desktop-layout-brief.md, ADR-107. Phone-first stays: nothing here applies under 1024 px
+   (the fold's inner screen, ~840 px, keeps the rail layout of round 1). From 1024 px the page uses
+   the window's width (no fixed column), screens arrange themselves in two columns or master and
+   detail, and a sheet opened on a screen with a side panel is laid out in that panel (lib/dock.ts).
+   Content stays on solid surfaces; glass stays on the bars and controls. Text blocks keep a
+   readable measure inside the wider columns. */
+
+/* ------------------------------------------------------------------ keyboard shortcuts (every width) */
+.sheet-keys {
+  width: min(480px, calc(100% - 32px));
+}
+
+.keys-group {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.keys-group h3 {
+  font-size: var(--fs-15);
+  font-weight: 650;
+  color: var(--text-2);
+}
+
+.keys-list {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.keys-row {
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  align-items: center;
+  gap: 12px;
+  min-height: 40px;
+  border-bottom: 0.5px solid var(--hairline);
+}
+
+.keys-row:last-child {
+  border-bottom: 0;
+}
+
+.keys-row dt {
+  display: flex;
+  gap: 6px;
+}
+
+.keys-row dd {
+  margin: 0;
+}
+
+kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 28px;
+  height: 28px;
+  padding: 0 8px;
+  border-radius: var(--r-xs);
+  background: var(--surface-sunken);
+  box-shadow: inset 0 -1px 0 var(--hairline-strong), 0 0 0 0.5px var(--hairline);
+  font: 600 var(--fs-14) / 1 var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
+/* a wide window: the groups in two columns, so the whole list fits a 768 px window */
+@media (min-width: 1024px) {
+  .sheet-keys {
+    width: min(760px, calc(100% - 32px));
+  }
+
+  .sheet-keys .sheet-body {
+    display: block;
+    columns: 2;
+    column-gap: 36px;
+  }
+
+  .sheet-keys .keys-group {
+    break-inside: avoid;
+    margin-bottom: 16px;
+  }
+
+  .sheet-keys .sheet-body > .caption {
+    column-span: all;
+  }
+}
+
+/* ------------------------------------------------------------------ side panels and docked sheets */
+@media (min-width: 1024px) {
+  .app {
+    --gutter: 28px;
+    /* a side panel's width: room for a sheet's form without narrowing the content much */
+    --panel-w: clamp(340px, 27vw, 440px);
+    --panel-top: calc(var(--chrome-top) + var(--notice-h));
+  }
+
+  /* no fixed narrow column: the page is the window beside the rail */
+  .page {
+    max-width: none;
+  }
+
+  .vault-notice {
+    max-width: none;
+  }
+
+  /* the panel rides beside the content while the pane scrolls */
+  .side-panel {
+    position: sticky;
+    top: var(--panel-top);
+    align-self: start;
+    min-width: 0;
+    max-height: calc(100dvh - var(--panel-top) - 24px);
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap);
+  }
+
+  .side-default {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap);
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    border-radius: var(--r-card);
+  }
+
+  .side-slot {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+  }
+
+  .side-slot:empty {
+    display: none;
+  }
+
+  /* a sheet in the panel takes the panel's place of its default content */
+  .side-panel:has(> .side-slot > .dock-sheet) > .side-default {
+    display: none;
+  }
+
+  /* a sheet laid out in a side panel: the sheet's own parts on a solid card */
+  .dock-sheet {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto auto;
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-areas:
+      'title title close'
+      'tools tools tools'
+      'body body body'
+      'foot foot foot';
+    min-height: 0;
+    max-height: 100%;
+    border-radius: var(--r-card);
+    background: var(--surface);
+    box-shadow: var(--card-shadow), 0 0 0 0.5px var(--hairline);
+    outline: none;
+    overflow: hidden;
+    animation: dock-in 220ms var(--ease);
+  }
+
+  .dock-sheet .sheet-title {
+    grid-area: title;
+    align-self: center;
+    min-width: 0;
+    padding: 18px 0 6px 22px;
+    font-size: var(--fs-22);
+  }
+
+  .dock-sheet .sheet-close {
+    grid-area: close;
+    align-self: center;
+    margin: 14px 12px 4px 8px;
+  }
+
+  .dock-sheet .sheet-tools {
+    grid-area: tools;
+    min-width: 0;
+    padding: 4px 22px 8px;
+  }
+
+  .dock-sheet .sheet-body {
+    grid-area: body;
+    min-height: 0;
+    padding: 6px 22px 18px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  .dock-sheet .sheet-foot {
+    grid-area: foot;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 22px 18px;
+    border-top: 0.5px solid var(--hairline);
+  }
+
+  /* a dialog on a big screen: centred, a little lower than a phone's sheet, never full width */
+  .sheet {
+    --sheet-top: max(8vh, 56px);
+  }
+
+  .toasts {
+    padding-left: 96px;
+  }
+}
+
+@keyframes dock-in {
+  from {
+    opacity: 0;
+    transform: translateX(14px);
+  }
+}
+
+:root[data-motion='reduced'] .dock-sheet {
+  animation: vt-fade-in 120ms linear !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root:not([data-motion='full']) .dock-sheet {
+    animation: vt-fade-in 120ms linear !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .dock-sheet {
+    box-shadow: 0 0 0 1px var(--hairline-strong);
+  }
+}
+
+/* ------------------------------------------------------------------ Calendar on the big screen (brief §1)
+   The page fills the window's height: the head and its actions on one line, then the grid and
+   (when something is chosen, and always for Day) the side panel. Week and Day scroll their hours
+   inside the grid; Month's weeks share the height, each day at least 104 px tall. */
+@media (min-width: 1024px) {
+  .calendar[data-desk] {
+    --cal-h: calc(100dvh - var(--chrome-top) - var(--notice-h) - var(--chrome-bottom) - 6px);
+    padding-bottom: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-rows: auto minmax(0, 1fr);
+    column-gap: 20px;
+    min-height: var(--cal-h);
+  }
+
+  .calendar[data-desk][data-view='week'],
+  .calendar[data-desk][data-view='day'] {
+    height: var(--cal-h);
+  }
+
+  /* Month's height is set (its cells list what fits, never more): the window's, or 760 px on a
+     short window (the page scrolls) */
+  .calendar[data-desk][data-view='month'] {
+    height: max(var(--cal-h), 760px);
+  }
+
+  .calendar[data-desk] .cal-head {
+    grid-column: 1;
+    grid-row: 1;
+    justify-content: flex-start;
+    align-items: center;
+    gap: 20px;
+    margin: 0 2px 14px;
+  }
+
+  .calendar[data-desk] .cal-title h1 {
+    font-size: var(--fs-32);
+  }
+
+  .calendar[data-desk] .cal-nav {
+    margin: 0;
+    order: -1;
+  }
+
+  .calendar[data-desk] .wk-actions {
+    grid-column: 2;
+    grid-row: 1;
+    align-self: center;
+    flex-direction: row-reverse;
+    margin: 0 0 14px;
+  }
+
+  .calendar[data-desk] .cal-split {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    min-height: 0;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 20px;
+  }
+
+  .calendar[data-desk] .cal-split:has(> .side-panel > .side-default, > .side-panel > .side-slot > *) {
+    grid-template-columns: minmax(0, 1fr) var(--panel-w);
+  }
+
+  .calendar[data-desk] .cal-split > .side-panel:not(:has(> .side-default, > .side-slot > *)) {
+    display: none;
+  }
+
+  /* Week and Day: the panel is the grid's height; Month: it rides along while the page scrolls */
+  .calendar[data-desk]:is([data-view='week'], [data-view='day']) .cal-split > .side-panel {
+    position: relative;
+    top: 0;
+    align-self: stretch;
+    max-height: none;
+    min-height: 0;
+  }
+
+  .calendar[data-desk] .cal-body {
+    min-height: 0;
+    grid-template-rows: minmax(0, 1fr);
+  }
+
+  .calendar[data-desk] .cal-body > .seg-pane {
+    align-self: stretch;
+    min-height: 0;
+  }
+
+  .calendar[data-desk] .wk-days,
+  .calendar[data-desk] .cal-day-desk {
+    height: 100%;
+  }
+
+  .calendar[data-desk] .wk-days > .skeleton {
+    height: 100%;
+  }
+
+  .calendar[data-desk] .cal-month-desk {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+  }
+
+  .side-skeleton {
+    height: 240px;
+  }
+
+  .day-aside {
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap);
+  }
+}
+
+/* ------------------------------------------------------------------ the time grid (Week, Day) */
+.tg {
+  --hour: 52px;
+  --tg-gutter: 64px;
+  height: 100%;
+  min-height: 360px;
+  border-radius: var(--r-card);
+  background: var(--surface);
+  box-shadow: var(--card-shadow);
+  overflow: hidden;
+}
+
+@media (min-height: 1000px) {
+  .tg {
+    --hour: 60px;
+  }
+}
+
+.tg-scroll {
+  height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.tg-row {
+  display: grid;
+  grid-template-columns: var(--tg-gutter) repeat(var(--days), minmax(0, 1fr));
+  column-gap: 4px;
+  padding-right: 8px;
+}
+
+/* the days' heads and the all-day row stay while the hours scroll (nothing is square: its lower
+   corners round off over the hours, round-2 brief §13) */
+.tg-top {
+  position: sticky;
+  top: 0;
+  z-index: 4;
+  padding-bottom: 6px;
+  border-radius: var(--r-card) var(--r-card) var(--r-sm) var(--r-sm);
+  background: var(--surface);
+  box-shadow: 0 6px 8px -8px rgba(16, 24, 40, 0.18);
+}
+
+.tg-corner {
+  min-width: 0;
+}
+
+.tg-head {
+  padding: 8px 0 4px;
+}
+
+.tg-day {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
+  padding: 0 4px;
+}
+
+.tg-day-open {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0;
+  width: 100%;
+  min-height: var(--tap);
+  padding: 6px 4px;
+  border: 0;
+  border-radius: var(--r-md);
+  background: transparent;
+  color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tg-day-open:active {
+  background: var(--press);
+}
+
+.tg-dow {
+  font-size: var(--fs-13);
+  font-weight: 650;
+  color: var(--text-3);
+}
+
+.tg-dom {
+  font-size: var(--fs-22);
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.tg-hday {
+  font-size: 11px;
+  color: var(--text-3);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.tg-day.is-past .tg-dom {
+  color: var(--text-2);
+}
+
+.tg-day.is-today .tg-dom,
+.tg-day.is-today .tg-dow {
+  color: var(--accent);
+}
+
+.tg-day.is-today .tg-day-open {
+  background: var(--accent-soft);
+}
+
+.tg-day.is-selected .tg-day-open {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.tg-day .day-mark {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+}
+
+.tg-allday {
+  min-height: 40px;
+  padding-top: 4px;
+}
+
+.tg-allday-label {
+  align-self: center;
+  padding-right: 8px;
+  text-align: right;
+  font-size: 11px;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  color: var(--text-3);
+}
+
+.tg-allday-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  min-height: 34px;
+  padding: 4px;
+  border-radius: var(--r-sm);
+  background: var(--surface-2);
+}
+
+.tg-allday-ev,
+.tg-task {
+  min-width: 0;
+  border-radius: var(--r-xs);
+  font-size: var(--fs-13);
+  line-height: 1.3;
+}
+
+.tg-allday-ev {
+  background: var(--accent-soft);
+}
+
+.tg-allday-ev .ev-open {
+  display: block;
+  padding: 4px 7px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tg-task {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 4px 6px;
+  border: 0;
+  background: var(--surface-2);
+  color: var(--text);
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.tg-task-text {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tg-tick {
+  flex: none;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--warn-fill);
+}
+
+.tg-task.done .tg-tick {
+  background: var(--ok-fill);
+  box-shadow: none;
+}
+
+.tg-task.done .tg-task-text {
+  color: var(--text-2);
+  text-decoration: line-through;
+}
+
+.tg-more {
+  align-self: flex-start;
+  min-height: 24px;
+  padding: 0 6px;
+  border: 0;
+  border-radius: var(--r-xs);
+  background: transparent;
+  color: var(--accent);
+  font-size: var(--fs-13);
+  font-weight: 650;
+}
+
+.tg-body {
+  position: relative;
+  height: calc(24 * var(--hour) + 8px);
+  padding-bottom: 8px;
+}
+
+.tg-labels {
+  position: relative;
+}
+
+.tg-hour {
+  position: absolute;
+  right: 8px;
+  top: calc(var(--at) * var(--hour) - 0.6em);
+  font-size: 11px;
+  color: var(--text-3);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* a day's hours: a rounded lane; the hour lines run across the lanes (.tg-line: plain boxes, where
+   a repeating gradient per lane cost the switch to the Calendar a missed frame at 1920 px, CPU 4x) */
+.tg-col {
+  position: relative;
+  min-width: 0;
+  border-radius: var(--r-md);
+  background-color: var(--surface-2);
+}
+
+.tg-line {
+  position: absolute;
+  z-index: 0;
+  left: calc(var(--tg-gutter) + 4px);
+  right: 8px;
+  top: calc(var(--at) * var(--hour));
+  height: 1px;
+  background: var(--hairline);
+  pointer-events: none;
+}
+
+.tg:not(.tg-single) .tg-col.is-today {
+  background-color: color-mix(in srgb, var(--accent-fill) 7%, var(--surface-2));
+}
+
+/* the five prayers: a mark across the day at its time, its name and time at the left */
+.tg-prayers {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  pointer-events: none;
+}
+
+.tg-prayer {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(var(--at) * var(--hour));
+  height: 0;
+  border-top: 1.5px dashed color-mix(in srgb, var(--ok-fill) 70%, transparent);
+  font-size: 11px;
+  line-height: 1;
+  color: var(--ok);
+  white-space: nowrap;
+  overflow: visible;
+}
+
+.tg-prayer > * {
+  position: relative;
+  top: 2px;
+}
+
+.tg-prayer {
+  padding-left: 4px;
+}
+
+.tg-prayer-name {
+  font-weight: 650;
+}
+
+.tg-single .tg-prayer {
+  font-size: var(--fs-13);
+}
+
+/* an event: an hour long from its start, sharing the column with those it overlaps */
+.tg-ev {
+  position: absolute;
+  z-index: 1;
+  top: calc(var(--at) * var(--hour) + 1px);
+  height: calc(var(--hour) - 3px);
+  left: calc(3px + (100% - 6px) * var(--lane) / var(--lanes));
+  width: calc((100% - 6px) / var(--lanes) - 2px);
+  min-width: 0;
+}
+
+.tg-ev-row {
+  height: 100%;
+  border-radius: var(--r-sm);
+  background: color-mix(in srgb, var(--accent-fill) 16%, var(--surface));
+  box-shadow: inset 3px 0 0 var(--accent-fill), 0 0 0 0.5px var(--hairline);
+  overflow: hidden;
+}
+
+.tg-ev-row.swipe {
+  padding: 0;
+}
+
+.tg-ev-row .ev-open {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 4px 8px 4px 10px;
+  font-size: var(--fs-13);
+  line-height: 1.25;
+  overflow: hidden;
+}
+
+.tg-ev-time {
+  color: var(--accent);
+  font-weight: 650;
+  font-size: 12px;
+}
+
+.tg-ev-text {
+  color: var(--text);
+  font-weight: 560;
+  overflow-wrap: anywhere;
+}
+
+.tg-single .tg-ev-row .ev-open {
+  flex-direction: row;
+  align-items: baseline;
+  gap: 10px;
+  padding: 6px 12px 6px 14px;
+  font-size: var(--fs-15);
+}
+
+.tg-single .tg-ev-time {
+  font-size: var(--fs-13);
+}
+
+.tg-now {
+  position: absolute;
+  z-index: 2;
+  left: -4px;
+  right: 0;
+  top: calc(var(--at) * var(--hour));
+  height: 2px;
+  margin-top: -1px;
+  background: var(--crit-fill);
+  border-radius: var(--r-xs);
+  pointer-events: none;
+}
+
+.tg-now::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--crit-fill);
+}
+
+.tg-col.is-past > :is(.tg-ev, .tg-prayers) {
+  opacity: 0.72;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .tg-day-open:hover,
+  .tg-task:hover,
+  .tg-more:hover {
+    background: var(--hover);
+  }
+  .tg-ev-row:hover {
+    background: color-mix(in srgb, var(--accent-fill) 24%, var(--surface));
+  }
+}
+
+/* ------------------------------------------------------------------ Month on the big screen: tall cells */
+.mg-tall {
+  height: 100%;
+  grid-template-rows: auto repeat(var(--weeks), minmax(104px, 1fr));
+  gap: 0;
+}
+
+.cal-month-desk .month-card {
+  flex: 1;
+  min-height: 0;
+  padding: 6px;
+}
+
+.mg-tall .mg-dow {
+  padding: 6px 0 8px;
+  font-size: var(--fs-13);
+}
+
+.mc.mc-tall {
+  aspect-ratio: auto;
+  min-height: 0;
+  align-items: stretch;
+  gap: 2px;
+  padding: 6px 6px 4px;
+  border-radius: var(--r-md);
+  overflow: hidden;
+  box-shadow: inset 0 0.5px 0 var(--hairline);
+}
+
+.mc-hit {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border: 0;
+  border-radius: inherit;
+  background: transparent;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mc-hit:active {
+  background: var(--press);
+}
+
+.mc-tall > :not(.mc-hit) {
+  position: relative;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.mc-tall :is(.mc-ev, .mc-task) {
+  pointer-events: auto;
+}
+
+.mc-top {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  min-height: 22px;
+  padding: 0 2px;
+}
+
+.mc-tall .mc-n {
+  font-size: var(--fs-17);
+}
+
+.mc-tall .mc-h {
+  min-width: 0;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mc-tall .mc-mark {
+  position: static;
+  margin-left: auto;
+  align-self: center;
+}
+
+.mc-tall.is-today {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.mc-tall.is-selected {
+  background: var(--accent-soft);
+}
+
+.mc-tall.is-past .mc-items {
+  opacity: 0.75;
+}
+
+.mc-items {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mc-ev,
+.mc-task {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  width: 100%;
+  min-width: 0;
+  height: 20px;
+  padding: 0 5px;
+  border: 0;
+  border-radius: var(--r-xs);
+  font-size: 12px;
+  line-height: 20px;
+  color: var(--text);
+  text-align: left;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.mc-ev {
+  background: var(--accent-soft);
+}
+
+.mc-task {
+  background: var(--surface-2);
+}
+
+.mc-time {
+  flex: none;
+  color: var(--accent);
+  font-weight: 650;
+}
+
+.mc-text {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mc-tick {
+  flex: none;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  box-shadow: inset 0 0 0 1.5px var(--warn-fill);
+}
+
+.mc-task.done .mc-tick {
+  background: var(--ok-fill);
+  box-shadow: none;
+}
+
+.mc-task.done .mc-text {
+  color: var(--text-2);
+  text-decoration: line-through;
+}
+
+.mc-more {
+  padding: 0 5px;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 18px;
+  color: var(--accent);
+}
+
+/* the prayer marks: Fajr and Maghrib, the day's frame */
+.mc-prayers {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  height: 18px;
+  padding: 0 3px;
+  font-size: 11px;
+  color: var(--ok);
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.mc-prayers svg,
+.month-legend .legend-icon {
+  flex: none;
+  width: 13px;
+  height: 13px;
+  stroke-width: 2;
+  color: var(--ok);
+}
+
+.mc-prayers svg + .num {
+  margin-right: 5px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .mc-hit:hover {
+    background: var(--hover);
+  }
+  .mc-ev:hover {
+    background: color-mix(in srgb, var(--accent-fill) 22%, var(--surface));
+  }
+  .mc-task:hover {
+    background: var(--surface-sunken);
+  }
+}
+
+/* ------------------------------------------------------------------ a day in the side panel */
+.day-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.dd-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+}
+
+.dd-title {
+  flex: 1;
+  min-width: 0;
+}
+
+.dd-title h2 {
+  font-size: var(--fs-22);
+}
+
+.dd-head .day-mark {
+  margin: 0;
+}
+
+.dd-head .icon-btn {
+  margin: -6px -10px 0 0;
+}
+
+.dd-prayers {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 4px;
+  margin: 0;
+  padding: 8px;
+  list-style: none;
+  border-radius: var(--r-in-card);
+  background: var(--ok-soft);
+}
+
+.dd-prayers li {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: var(--fs-13);
+  line-height: 1.3;
+}
+
+.dd-prayers li > span:first-child {
+  color: var(--ok);
+  font-weight: 650;
+}
+
+.dd-prayers li.passed {
+  opacity: 0.6;
+}
+
+.dd-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.dd-section h3 {
+  font-size: var(--fs-15);
+  font-weight: 650;
+  color: var(--text-2);
+}
+
+.dd-events {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dd-event.swipe {
+  padding: 0;
+}
+
+.dd-event .ev-open {
+  display: grid;
+  grid-template-columns: 72px 1fr;
+  gap: 10px;
+  align-items: baseline;
+  min-height: var(--tap);
+  padding: 8px 0;
+}
+
+.dd-when {
+  font-size: var(--fs-14);
+  font-weight: 650;
+  color: var(--accent);
+}
+
+.dd-text {
+  overflow-wrap: anywhere;
+}
+
+.dd-foot {
+  margin-top: 4px;
+}
+
+/* ------------------------------------------------------------------ the other screens on the big screen (brief §2) */
+@media (min-width: 1024px) {
+  /* text keeps a readable measure inside the wide columns */
+  .page p {
+    max-width: 75ch;
+  }
+
+  /* Today: the date, the moment's plan and tasks | the prayer times, check-in and habits; the
+     week ahead under the second column (beside them from 1800 px) */
+  .today-cols {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) clamp(340px, 31%, 440px);
+    grid-template-rows: auto 1fr;
+    grid-template-areas:
+      'main side'
+      'main week';
+    column-gap: 24px;
+    row-gap: var(--gap);
+    align-items: start;
+  }
+
+  .today-main {
+    grid-area: main;
+    min-width: 0;
+  }
+
+  .today-side {
+    grid-area: side;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--gap);
+  }
+
+  .today-week {
+    grid-area: week;
+    min-width: 0;
+  }
+
+  .today-desk .day-head-title {
+    max-width: none;
+    padding: 2px 2px 16px;
+  }
+
+  .day-prayers {
+    padding: 18px 18px 16px;
+  }
+
+  .day-prayers .day-arc {
+    margin-top: 0;
+  }
+
+  .day-prayers .next-prayer {
+    margin-top: 10px;
+  }
+}
+
+@media (min-width: 1800px) {
+  .today-cols {
+    grid-template-columns: minmax(0, 1fr) 440px 400px;
+    grid-template-rows: auto;
+    grid-template-areas: 'main side week';
+  }
+}
+
+@media (min-width: 1024px) {
+  /* .day-prayers: the arc's dawn and dusk washes stay inside the card */
+  .day-prayers {
+    overflow: hidden;
+  }
+
+  /* master and detail: Lists, Goals, Habits (the list, then the side panel) */
+  /* the page's head over both, then the list and the panel side by side */
+  :is(.lists-desk, .goals-desk, .habits-desk) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--panel-w);
+    grid-template-rows: auto 1fr;
+    column-gap: 24px;
+    align-items: start;
+  }
+
+  :is(.lists-desk, .goals-desk, .habits-desk) > .page-head {
+    grid-column: 1 / -1;
+  }
+
+  :is(.lists-main, .goals-main, .habits-main) {
+    min-width: 0;
+  }
+
+  /* the panel fits the window under the page's head before anything scrolls */
+  :is(.lists-desk, .goals-desk, .habits-desk) > .side-panel {
+    max-height: calc(100dvh - var(--panel-top) - 92px);
+  }
+
+  /* the list's own Search the web button: the panel has the field */
+  .lists-desk .page-head [data-testid='search-web'] {
+    display: none;
+  }
+
+  .lists-desk .page-head {
+    min-height: 50px;
+  }
+
+  /* a sheet in a panel never runs past the window: its body scrolls */
+  .dock-sheet {
+    flex: 0 1 auto;
+  }
+
+  .lists-aside,
+  .goals-aside {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .lists-aside .edit-row .btn {
+    flex: none;
+    min-width: var(--tap);
+    padding: 0 14px;
+  }
+
+  .goals-aside .counter-strip {
+    margin: 0;
+    grid-template-columns: 1fr;
+  }
+
+  .goals-aside .counter-strip > div {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    box-shadow: none;
+    background: var(--surface-2);
+    border-radius: var(--r-in-card);
+  }
+
+  .habits-desk .side-default .habit-stats {
+    margin: 0;
+  }
+
+  .habits-hint {
+    padding: 0 6px;
+  }
+
+  /* the item shown in the panel is marked in the list */
+  .goal-card.is-selected,
+  .card.habit.is-selected {
+    box-shadow: var(--card-shadow), inset 0 0 0 2px var(--accent);
+  }
+
+  /* goals and habits: columns of cards when the list is wide (goals' sections keep one column
+     width; the habits share their row) */
+  .goals-main .stack,
+  .habits-main .habit-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr));
+    gap: var(--gap);
+    align-items: start;
+  }
+
+  .habits-main .habit-list {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  }
+
+  .goals-main .stack > *,
+  .habits-main .habit-list > * {
+    margin: 0;
+  }
+
+  /* Settings: the sections on the left, the one chosen beside them */
+  .settings-desk {
+    display: grid;
+    grid-template-columns: 260px minmax(0, 1fr);
+    column-gap: 28px;
+    align-items: start;
+  }
+
+  .settings-nav {
+    position: sticky;
+    top: var(--panel-top);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    max-height: calc(100dvh - var(--panel-top) - 24px);
+    overflow-y: auto;
+    scrollbar-width: none;
+  }
+
+  .settings-nav .page-title {
+    margin: 4px 4px 10px;
+  }
+
+  .settings-nav ul {
+    list-style: none;
+    margin: 0;
+    padding: 6px;
+    border-radius: var(--r-card);
+    background: var(--surface);
+    box-shadow: var(--card-shadow);
+  }
+
+  .settings-nav-item {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    min-height: var(--tap);
+    padding: 0 14px;
+    border: 0;
+    border-radius: calc(var(--r-card) - 6px);
+    background: transparent;
+    color: var(--text);
+    font-size: var(--fs-17);
+    text-align: left;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .settings-nav-item:active {
+    background: var(--press);
+  }
+
+  .settings-nav-item[aria-current='true'] {
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-weight: 650;
+  }
+
+  .settings-nav-group {
+    margin: 8px 14px 0;
+    font-size: var(--fs-13);
+    font-weight: 650;
+    letter-spacing: 0.02em;
+    color: var(--text-3-bg);
+  }
+
+  .settings-nav .settings-switch {
+    margin: 0;
+  }
+
+  .settings-sections {
+    min-width: 0;
+    padding-top: 6px;
+  }
+
+  .settings-desk .settings-sections .settings-section:not([data-chosen]),
+  .settings-desk .settings-advanced:not(:has(.settings-section[data-chosen])),
+  .settings-desk .settings-advanced-head {
+    display: none;
+  }
+
+  .settings-desk .settings-section[data-chosen] > :is(h2, h3) {
+    font-size: var(--fs-26);
+    font-weight: 720;
+    letter-spacing: -0.02em;
+    color: var(--text);
+    text-transform: none;
+    margin-bottom: 14px;
+  }
+}
+
+@media (hover: hover) and (pointer: fine) {
+  @media (min-width: 1024px) {
+    .settings-nav-item:hover {
+      background: var(--hover);
+    }
+  }
+}

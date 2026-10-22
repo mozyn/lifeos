@@ -1,5 +1,6 @@
-# LifeOS images (one Dockerfile, two targets): `api` (Fastify + better-sqlite3, runs as uid 1000 so
-# vault writes look like ordinary files to Syncthing and Obsidian) and `web` (nginx serving the
+# LifeOS images (one Dockerfile, two targets): `api` (Fastify + better-sqlite3, runs as the notes
+# folder's owner so vault writes look like ordinary files to Syncthing and Obsidian: its entrypoint
+# starts as root only to read that owner, then drops to it, ADR-105) and `web` (nginx serving the
 # built PWA under /lifeos and proxying /lifeos/api to the API). Secrets never enter an image: the
 # .env.* files are excluded by .dockerignore and loaded at run time by compose `env_file`.
 # It builds on amd64 and arm64 alike (a NAS builds it itself, product brief 10 §2, ADR-95): the
@@ -49,7 +50,16 @@ COPY fixtures/starter-vault starter-vault
 # volume works for uid 1000 and for anyone else; /auth too, since compose mounts the same data
 # volume there unless LIFEOS_AUTH_DIR is set (ADR-90)
 RUN mkdir -p /data /vault /auth && chown node:node /data /vault /auth && chmod 0777 /data /auth
-USER node
+# the exec helper the entrypoint drops to the notes' owner with: setpriv, from Debian's util-linux
+# (essential, so already in the base image), held to bookworm's 2.38.1; Debian's security
+# revisions of it pass (ADR-105)
+RUN v="$(dpkg-query -W -f='${Version}' util-linux)" && case "$v" in 2.38.1-*) ;; *) echo "util-linux $v: expected 2.38.1-*" >&2; exit 1 ;; esac \
+  && [ "$(dpkg -S /usr/bin/setpriv | cut -d: -f1)" = util-linux ]
+COPY --chmod=0755 docker/api-entry.sh /usr/local/bin/lifeos-api-entry
+# starts as root (no USER): the entrypoint reads the notes folder's owner, makes /data and /auth
+# that user's when they are not, and runs node as that user, never as root. With compose's
+# `user:` line (this host's compose) it starts as that user and only runs node.
+ENTRYPOINT ["/usr/local/bin/lifeos-api-entry"]
 # the release this image is (GET /api/health `release`); last, so a new one changes one layer
 ARG LIFEOS_BUILD=dev
 ENV LIFEOS_BUILD=$LIFEOS_BUILD

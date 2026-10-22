@@ -737,7 +737,7 @@
 .settings-section {
   margin-bottom: 22px;
   /* a link to a section (?s=prayer) lands it below the floating top bar, not under it */
-  scroll-margin-top: calc(var(--chrome-top) + 8px);
+  scroll-margin-top: calc(var(--chrome-top) + var(--notice-h) + 8px);
 }
 
 .settings-section > :is(h2, h3) {
@@ -820,7 +820,7 @@
 
 .settings-advanced {
   animation: settings-advanced-in 180ms ease-out;
-  scroll-margin-top: calc(var(--chrome-top) + 8px);
+  scroll-margin-top: calc(var(--chrome-top) + var(--notice-h) + 8px);
 }
 
 @keyframes settings-advanced-in {
@@ -1216,7 +1216,7 @@
 }
 
 .wk-day {
-  scroll-margin-top: calc(var(--chrome-top) + 8px);
+  scroll-margin-top: calc(var(--chrome-top) + var(--notice-h) + 8px);
 }
 
 /* ------------------------------------------------------------------ page heads, goals */

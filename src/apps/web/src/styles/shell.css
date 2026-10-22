@@ -5,6 +5,8 @@
 .app {
   --chrome-top: calc(68px + env(safe-area-inset-top));
   --chrome-bottom: calc(108px + env(safe-area-inset-bottom));
+  /* the notes-folder line under the top bar, while it shows (shell/VaultNotice.tsx) */
+  --notice-h: 0px;
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -34,7 +36,7 @@
   overflow-y: auto;
   overflow-x: hidden;
   overscroll-behavior: contain;
-  padding: var(--chrome-top) 0 var(--chrome-bottom);
+  padding: calc(var(--chrome-top) + var(--notice-h)) 0 var(--chrome-bottom);
   scrollbar-width: none;
   /* always its own layer, so a slide never promotes (or repaints) a pane when it starts */
   will-change: transform;
@@ -70,6 +72,71 @@
 
 .page-title {
   margin: 4px 0 18px;
+}
+
+/* ------------------------------------------------------------------ the notes folder cannot be written
+   (ADR-105): one calm line on a solid surface under the top bar, on every screen; the panes start
+   below it (VaultNotice sets --notice-h to its height) */
+.vault-notice {
+  position: absolute;
+  top: var(--chrome-top);
+  left: 0;
+  right: 0;
+  z-index: 25;
+  box-sizing: border-box;
+  width: calc(100% - 2 * var(--gutter));
+  max-width: calc(640px - 2 * var(--gutter));
+  min-height: 48px;
+  margin: 0 auto;
+  padding: 2px 4px 2px 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--r-lg);
+  box-shadow: var(--card-shadow);
+  font-size: var(--fs-15);
+}
+
+.vault-notice svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  color: var(--warn);
+}
+
+/* one line at the usual text size; larger text wraps it (never cut short) */
+.vault-notice p {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+}
+
+.vault-notice a {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--tap);
+  padding: 0 10px;
+  border-radius: var(--r-md);
+  color: var(--accent);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.vault-notice a:active {
+  background: var(--press);
+}
+
+@media (prefers-contrast: more) {
+  .vault-notice {
+    border-color: var(--hairline-strong);
+  }
+
+  .vault-notice a {
+    text-decoration: underline;
+  }
 }
 
 /* ------------------------------------------------------------------ top bar: controls only */
@@ -179,7 +246,7 @@
 
 .edge-top {
   top: 0;
-  height: calc(var(--chrome-top) + 8px);
+  height: calc(var(--chrome-top) + var(--notice-h) + 8px);
   background: linear-gradient(to bottom, color-mix(in srgb, var(--bg) 62%, transparent) 40%, transparent);
   opacity: 0;
   transition: opacity 200ms ease-out;
@@ -270,6 +337,8 @@
   -webkit-tap-highlight-color: transparent;
   user-select: none;
   -webkit-user-drag: none;
+  /* a held tab is a press, not a link to preview: iOS's preview would cancel the touch */
+  -webkit-touch-callout: none;
 }
 
 .tab svg {
@@ -452,6 +521,8 @@
     display: flex;
     flex-direction: column;
     gap: 4px;
+    /* no double-tap zoom on the rail (round 8d) */
+    touch-action: manipulation;
   }
   .rail-tab {
     position: relative;
@@ -468,6 +539,7 @@
     font-weight: 620;
     text-decoration: none;
     -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
   }
   .rail-tab svg {
     width: 24px;
@@ -501,6 +573,10 @@
   }
   .page {
     max-width: 1040px;
+  }
+  /* the notes-folder line keeps the page's edges */
+  .vault-notice {
+    max-width: calc(1040px - 2 * var(--gutter));
   }
 }
 

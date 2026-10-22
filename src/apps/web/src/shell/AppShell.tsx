@@ -16,6 +16,7 @@ import { CalendarDays, Flame, ListChecks, Plus, Settings, Sun, Target } from 'lu
 import { Glass } from '../glass/Glass';
 import { controllerFor } from '../glass/engine';
 import { type LensHandle, useLensPill } from '../glass/lens';
+import { tapChooses } from '../glass/tap';
 import { Toasts } from '../components/ui';
 import { TaskSheetHost } from '../components/TaskSheet';
 import { SearchSheetHost } from '../components/SearchSheet';
@@ -24,7 +25,10 @@ import { RowMenuHost } from '../components/RowMenu';
 import { MoveSheetHost } from '../components/MoveSheet';
 import { BulkBar } from '../components/BulkBar';
 import { QuickAdd } from './QuickAdd';
+import { ShortcutsSheet } from './Shortcuts';
+import { isShortcut } from '../lib/keys';
 import { ThemeToggle } from './ThemeToggle';
+import { VaultNotice } from './VaultNotice';
 import { PrivacyToggle } from '../components/Private';
 import { scrollState, useScrollChrome } from './useScrollChrome';
 import { GoCtx, PaneCtx, QuickCtx, SlotsCtx } from './context';
@@ -188,7 +192,12 @@ function RailImpl({ initial, onQuick, onPrepare }: { initial: PaneKey; onQuick: 
             className={`rail-tab${t.key === initial ? ' active' : ''}`}
             aria-current={t.key === initial ? 'page' : undefined}
             data-tab={t.key}
-            onPointerDown={() => onPrepare(t.key)}
+            title={`${t.label} (${TABS.indexOf(t) + 1})`}
+            onPointerDown={(e) => {
+              onPrepare(t.key);
+              // a tap chooses on pointerup, as the tab bar's (iPad Safari may keep its click: glass/tap.ts)
+              tapChooses(e.nativeEvent, () => go(lastHref.get(t.key) ?? t.to));
+            }}
             onClick={(e) => {
               e.preventDefault();
               go(lastHref.get(t.key) ?? t.to);
@@ -200,7 +209,7 @@ function RailImpl({ initial, onQuick, onPrepare }: { initial: PaneKey; onQuick: 
           </a>
         ))}
       </div>
-      <Glass as="button" variant="tinted" className="rail-quick" press={1.5} aria-label="Quick Add" onClick={onQuick} data-testid="quick-add-rail">
+      <Glass as="button" variant="tinted" className="rail-quick" press={1.5} aria-label="Quick Add" title="Quick Add (N)" onClick={onQuick} data-testid="quick-add-rail">
         <Plus aria-hidden />
       </Glass>
     </Glass>
@@ -362,10 +371,12 @@ export function AppShell({ screens, warm = [] }: { screens: Record<ScreenKey, Re
   const mountedRef = useRef(mounted);
   mountedRef.current = mounted;
   const [quick, setQuick] = useState<{ open: boolean; type?: string }>({ open: false });
+  const [help, setHelp] = useState(false);
   useScrollChrome(contentRef, mainRef, dockRef);
   const openQuick = useCallback((type?: string) => setQuick({ open: true, type }), []);
   const openQuickPlain = useCallback(() => setQuick({ open: true }), []);
   const closeQuick = useCallback(() => setQuick({ open: false }), []);
+  const closeHelp = useCallback(() => setHelp(false), []);
 
   useLayoutEffect(() => setInitial(initial), [initial]);
 
@@ -445,6 +456,25 @@ export function AppShell({ screens, warm = [] }: { screens: Record<ScreenKey, Re
     return () => cancelIdle(id);
   }, [warm]);
 
+  // keyboard shortcuts (round 8f, lib/keys.ts): 1-5 the tabs, comma Settings, N Quick Add, ? the list
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (!isShortcut(e)) return;
+      const i = '12345'.indexOf(e.key);
+      if (i >= 0 && e.key.length === 1) {
+        const t = TABS[i];
+        go(lastHref.get(t.key) ?? t.to);
+      } else if (e.key === ',') go(lastHref.get('settings') ?? '/settings');
+      else if (e.key === 'n' || e.key === 'N') openQuickPlain();
+      else if (e.key === '?') setHelp(true);
+      else return;
+      // the key that opened Quick Add is not typed into its field
+      e.preventDefault();
+    };
+    window.addEventListener('keydown', down);
+    return () => window.removeEventListener('keydown', down);
+  }, [go, openQuickPlain]);
+
   // the screen a switch leaves behind loses focus if it had it: focus moves to the new pane
   useEffect(
     () =>
@@ -467,6 +497,7 @@ export function AppShell({ screens, warm = [] }: { screens: Record<ScreenKey, Re
           <Rail initial={initial} onQuick={openQuickPlain} onPrepare={onPrepare} />
           <div className="main" ref={mainRef}>
             <TopBar initial={initial} onSlots={setSlots} />
+            <VaultNotice />
             <div className="edge edge-top" aria-hidden />
             <main className="content" id="main" tabIndex={-1} ref={contentRef}>
               <Screens screens={screens} mounted={mounted} slots={slots} />
@@ -481,6 +512,7 @@ export function AppShell({ screens, warm = [] }: { screens: Record<ScreenKey, Re
           </div>
           <RouteWatcher onLocation={onLocation} />
           <QuickAdd open={quick.open} initialType={quick.type} onClose={closeQuick} />
+          <ShortcutsSheet open={help} onClose={closeHelp} />
           <TaskSheetHost />
           <SearchSheetHost />
           <GroupSheetHost />

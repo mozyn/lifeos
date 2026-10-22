@@ -42,6 +42,7 @@ import { editRoutes } from './routes/edits.js';
 import { Vault } from './vault/vault.js';
 import { isEmptyFolder, seedStarter, vaultAccess, vaultAccessMessage } from './vault/starter.js';
 import { RELEASE, VERSION } from './version.js';
+import { rootsOf } from './unwritable.js';
 import { IntegrationTokens } from './integration/tokens.js';
 import { AgentOutbox, agentHolds, nudgeKey } from './integration/outbox.js';
 import { AgentJobs } from './integration/jobs.js';
@@ -76,7 +77,8 @@ export type App = FastifyInstance & { ctx: Ctx; planner: Planner; auth: Auth; sc
 export async function buildApp(config: Config, opts: BuildOptions = {}): Promise<App> {
   const logger = opts.logStream ? { level: 'info', stream: opts.logStream } : config.mode === 'test' ? false : { level: 'info' };
   const app = Fastify({ logger, trustProxy: true, bodyLimit: 512 * 1024, disableRequestLogging: true }) as unknown as App;
-  installErrors(app);
+  // a write the system refuses names the notes folder or LifeOS's own folder (ADR-105)
+  installErrors(app, rootsOf(config));
   // a request target is a path: an absolute-form one (GET http://host/api/… HTTP/1.1, possible for
   // a caller on the compose network) is refused before any hook decides on its path
   app.addHook('onRequest', async (req, reply) => {

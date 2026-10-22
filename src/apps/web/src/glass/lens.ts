@@ -7,6 +7,11 @@
  * scrubs along the options with the lens glued to the finger, and releasing commits the option
  * under it. Reduced motion: the pill jumps, with no lens, stretch or bounce.
  *
+ * A tap chooses on pointerup (round 8d, tap.ts): when the finger stayed within TAP_SLOP, the
+ * option under it is committed through `onPick` and the click that follows does nothing, so a tap
+ * whose click iOS keeps (it took the tap for a hover) still chooses instead of sliding the pill
+ * back. Keyboard and screen-reader activation is the option's own click, as before.
+ *
  * Every frame is a transform (UI brief 2 §2): the pill translates, swells and stretches by
  * `translate3d() scale()`, and its box width changes only when the option it heads for has another
  * width (never per frame; the tab bar's options are all one width). Its map bends only a narrow
@@ -23,6 +28,7 @@
 import { type RefObject, useEffect, useLayoutEffect, useRef } from 'react';
 import { controllerFor } from './engine';
 import { motionReduced, onFrame, Spring, SPRINGS } from './spring';
+import { canTap, LONG_PRESS_MS, swallowClick, TAP_SLOP, withinSlop } from './tap';
 
 export interface LensPillOptions {
   /** positioning context: the options' offsetParent, and where pointer scrubbing is listened for */
@@ -31,7 +37,10 @@ export interface LensPillOptions {
   /** the options, in order (queried inside the track) */
   itemSelector: string;
   index: number;
-  /** commit an option chosen by scrubbing (taps go through the option's own click) */
+  /**
+   * Commit an option chosen by scrubbing or by a tap (on its pointerup; its click is then
+   * swallowed): it must do what the option's own click does. Keys still go through the click.
+   */
   onPick?: (index: number) => void;
   /** the pill reaches this far past the option on each side */
   pad?: number;
@@ -69,8 +78,11 @@ export function useLensPill(o: LensPillOptions): LensHandle {
     scrubbing: false,
     lens: false,
     downX: 0,
+    downY: 0,
+    downAt: 0,
     pointer: -1,
-    suppressClick: false,
+    /** the enabled option a finger went down on while it can still be a tap, else -1 */
+    tap: -1,
     stop: null as null | (() => void),
     geo: null as null | { el: HTMLElement; x: number; w: number; off: boolean }[],
     /** the pill's box width: set when the target width changes, so a frame only moves a transform */
@@ -329,14 +341,17 @@ export function useLensPill(o: LensPillOptions): LensHandle {
     return () => ro.disconnect();
   }, [o.track]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // press, balloon and scrub
+  // press, balloon, scrub and tap
   useEffect(() => {
     const track = o.track.current;
     if (!track) return;
     const local = (clientX: number) => clientX - track.getBoundingClientRect().left + track.scrollLeft;
     const onMove = (e: PointerEvent) => {
       if (e.pointerId !== s.pointer) return;
-      if (!s.scrubbing && Math.abs(e.clientX - s.downX) > 6) s.scrubbing = true;
+      if (!withinSlop(s.downX, s.downY, e.clientX, e.clientY)) s.tap = -1;
+      // reduced motion: no pill under the finger, so no scrub (only taps)
+      if (!s.pressed) return;
+      if (!s.scrubbing && Math.abs(e.clientX - s.downX) > TAP_SLOP) s.scrubbing = true;
       if (!s.scrubbing) return;
       const x = local(e.clientX);
       const i = indexAt(x);
@@ -348,75 +363,86 @@ export function useLensPill(o: LensPillOptions): LensHandle {
       s.x.target = Math.min(max, Math.max(0, x - w / 2));
       run();
     };
-    const finish = (e: PointerEvent, commit: boolean) => {
+    const finish = (e: PointerEvent, up: boolean) => {
       if (e.pointerId !== s.pointer) return;
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onCancel);
       s.pointer = -1;
-      s.pressed = false;
-      s.p.config = SPRINGS.bouncy;
-      s.p.target = 1;
-      s.x.config = SPRINGS.bouncy;
-      s.w.config = SPRINGS.bouncy;
-      if (s.scrubbing) {
-        s.scrubbing = false;
-        const i = indexAt(s.x.target + s.w.target / 2);
-        s.suppressClick = true;
-        setTimeout(() => (s.suppressClick = false), 0);
-        if (commit && i >= 0 && i !== s.index) opts.current.onPick?.(i);
-        const back = slot(commit && i >= 0 ? i : s.index);
-        if (back) {
-          s.x.target = back.x;
-          s.w.target = back.w;
+      // a tap: the finger came up within the slop, or a short press that did not move was
+      // cancelled by the browser (a cancel's position says nothing: WebKit sends 0, 0)
+      const tap = s.tap >= 0 && !s.scrubbing && (up ? withinSlop(s.downX, s.downY, e.clientX, e.clientY) : performance.now() - s.downAt <= LONG_PRESS_MS) ? s.tap : -1;
+      s.tap = -1;
+      if (s.pressed) {
+        s.pressed = false;
+        s.p.config = SPRINGS.bouncy;
+        s.p.target = 1;
+        s.x.config = SPRINGS.bouncy;
+        s.w.config = SPRINGS.bouncy;
+        if (s.scrubbing) {
+          s.scrubbing = false;
+          const i = indexAt(s.x.target + s.w.target / 2);
+          swallowClick();
+          if (up && i >= 0 && i !== s.index) opts.current.onPick?.(i);
+          const back = slot(up && i >= 0 ? i : s.index);
+          if (back) {
+            s.x.target = back.x;
+            s.w.target = back.w;
+          }
         }
+        run();
+        // a press that did not change the selection (or was cancelled) returns the pill home
+        setTimeout(() => {
+          if (s.pressed || s.scrubbing) return;
+          const home = slot(s.index);
+          if (home && (home.x !== s.x.target || home.w !== s.w.target)) {
+            s.x.target = home.x;
+            s.w.target = home.w;
+            run();
+          }
+        }, 80);
       }
-      run();
-      // a tap that did not change the selection (or was cancelled) returns the pill home
-      setTimeout(() => {
-        if (s.pressed || s.scrubbing) return;
-        const home = slot(s.index);
-        if (home && (home.x !== s.x.target || home.w !== s.w.target)) {
-          s.x.target = home.x;
-          s.w.target = home.w;
-          run();
-        }
-      }, 80);
+      // the tap chooses now, not on a click that may never come; its click then does nothing
+      if (tap >= 0) {
+        swallowClick();
+        opts.current.onPick?.(tap);
+      }
     };
     const onUp = (e: PointerEvent) => finish(e, true);
     const onCancel = (e: PointerEvent) => finish(e, false);
     const onDown = (e: PointerEvent) => {
-      if (e.button !== 0 || !e.isPrimary || motionReduced()) return;
-      const i = indexAt(local(e.clientX));
-      if (i < 0) return;
-      s.pressed = true;
+      if (e.button !== 0 || !e.isPrimary) return;
+      // the option under the finger, when it can be chosen (a disabled one has no click either)
+      const els = items();
+      const hit = els.findIndex((el) => el.contains(e.target as Node));
+      const tap = hit >= 0 && canTap(e) && opts.current.onPick && !els[hit].matches(':disabled, [aria-disabled="true"]') ? hit : -1;
+      const i = motionReduced() ? -1 : indexAt(local(e.clientX));
+      if (i < 0 && tap < 0) return;
       s.pointer = e.pointerId;
       s.downX = e.clientX;
+      s.downY = e.clientY;
+      s.downAt = performance.now();
+      s.tap = tap;
       s.scrubbing = false;
-      const target = slot(i);
-      if (target) {
-        s.x.target = target.x;
-        s.w.target = target.w;
+      if (i >= 0) {
+        s.pressed = true;
+        const target = slot(i);
+        if (target) {
+          s.x.target = target.x;
+          s.w.target = target.w;
+        }
+        s.p.config = SPRINGS.snappy;
+        s.p.target = opts.current.pressScale ?? 1.12;
+        lensOn();
+        run();
       }
-      s.p.config = SPRINGS.snappy;
-      s.p.target = opts.current.pressScale ?? 1.12;
-      lensOn();
-      run();
       window.addEventListener('pointermove', onMove, { passive: true });
       window.addEventListener('pointerup', onUp);
       window.addEventListener('pointercancel', onCancel);
     };
-    const onClick = (e: MouseEvent) => {
-      if (s.suppressClick) {
-        e.stopPropagation();
-        e.preventDefault();
-      }
-    };
     track.addEventListener('pointerdown', onDown);
-    track.addEventListener('click', onClick, true);
     return () => {
       track.removeEventListener('pointerdown', onDown);
-      track.removeEventListener('click', onClick, true);
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onCancel);

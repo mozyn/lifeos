@@ -6,6 +6,7 @@ import './styles/shell.css';
 import './styles/screens.css';
 import './styles/calendar.css';
 import './styles/transitions.css';
+import './styles/desktop.css';
 import { App } from './App';
 import { registerSW } from 'virtual:pwa-register';
 import { bootAppearance, PrefsProvider } from './lib/prefs';

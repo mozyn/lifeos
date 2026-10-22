@@ -24,7 +24,7 @@ export function RowMenuHost() {
   const m = useSyncExternalStore((cb) => on('row-menu', cb), () => current);
   if (!m) return null;
   return (
-    <Sheet open onClose={() => openRowMenu(null)} title={m.title} testId="row-menu" className="menu-sheet">
+    <Sheet open onClose={() => openRowMenu(null)} title={m.title} testId="row-menu" className="menu-sheet" dock={false}>
       <div className="menu-list" role="menu" aria-label={m.title}>
         {m.items.map((i) => (
           <button

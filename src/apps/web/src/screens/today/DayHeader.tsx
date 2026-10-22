@@ -155,17 +155,31 @@ export function DayArc({ prayers, nowMin, next, hijriDay }: { prayers: Today['pr
   );
 }
 
-export function DayHeader({ today, now }: { today: Today; now: Date }) {
+/**
+ * `part` (the big screen, round 8f): `title` is the Hijri and Gregorian date alone, at the top of
+ * Today's first column; `prayers` is the arc and the next prayer on a card in the second column.
+ */
+export function DayHeader({ today, now, part = 'all' }: { today: Today; now: Date; part?: 'all' | 'title' | 'prayers' }) {
   const nowMin = now.getHours() * 60 + now.getMinutes();
   const nextAt = Date.parse(today.next.at);
   const isToday = today.next.date === today.date;
   const summary = `Prayer times today: ${FIVE.map((p) => `${PRAYER_LABELS[p]} ${hm12(today.prayers[p])}`).join(', ')}. Next: ${today.next.label} in ${countdown(nextAt - now.getTime())}.`;
-  return (
-    <header className="day-head" data-testid="day-header">
+  const title = (
+    <>
       <p className="hijri" data-testid="hijri">
         {today.hijri}
       </p>
       <h1 className="day-date">{longDate(today.date)}</h1>
+    </>
+  );
+  if (part === 'title')
+    return (
+      <header className="day-head day-head-title" data-testid="day-header">
+        {title}
+      </header>
+    );
+  const arc = (
+    <>
       <div className="day-arc" role="img" aria-label={summary}>
         <DayArc prayers={today.prayers} nowMin={nowMin} next={isToday ? today.next.name : 'fajr-tomorrow'} hijriDay={today.hijriDay} />
         <ol className="arc-labels" aria-hidden>
@@ -181,6 +195,18 @@ export function DayHeader({ today, now }: { today: Today; now: Date }) {
         {today.next.label} in {countdown(nextAt - now.getTime())}
         <span className="secondary"> at {hm12(today.next.time)}</span>
       </p>
+    </>
+  );
+  if (part === 'prayers')
+    return (
+      <section className="card day-prayers" aria-label="Prayer times" data-testid="day-prayers">
+        {arc}
+      </section>
+    );
+  return (
+    <header className="day-head" data-testid="day-header">
+      {title}
+      {arc}
     </header>
   );
 }

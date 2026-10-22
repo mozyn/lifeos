@@ -1,14 +1,18 @@
 /**
  * Lists (spec §4.5): tasks (all), notes, links, shopping, wishlist — one glass segmented control
  * switches between them. "Search the web" in the header (every segment) opens the find-and-file
- * sheet (components/SearchSheet.tsx, round-2 brief §8).
+ * sheet (components/SearchSheet.tsx, round-2 brief §8). On the big screen (round 8f, ADR-107) the
+ * list has a side panel: the web search lives there (its results beside the list, so what is filed
+ * shows up in the list at once), and a task, note or item opened from the list opens there.
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router';
-import { Archive, BookOpen, Check as CheckIcon, ExternalLink, FolderInput, GripVertical, Pencil, Plus, RotateCcw, Trash2 } from 'lucide-react';
+import { Archive, BookOpen, Check as CheckIcon, ExternalLink, FolderInput, GripVertical, Pencil, Plus, RotateCcw, Search, Trash2 } from 'lucide-react';
 import { localZone, shortDate, todayIn, zonedParts } from '@lifeos/shared';
-import { Segmented, Sheet } from '../components/ui';
-import { SearchButton } from '../components/SearchSheet';
+import { Segmented, Sheet, useMedia } from '../components/ui';
+import { openSearch, SearchButton, useSearchEnabled } from '../components/SearchSheet';
+import { SidePanel } from '../components/SidePanel';
+import { WIDE } from '../lib/dock';
 import { Check, checkOf, TaskRow } from '../components/TaskRow';
 import { SwipeRow } from '../components/SwipeRow';
 import { NoteSheet } from '../components/NoteSheet';
@@ -549,6 +553,37 @@ function ItemsTab({ kind }: { kind: 'shopping' | 'wishlist' }) {
 }
 
 /** Each segment's screen. */
+/**
+ * The side panel while nothing is open in it (the big screen): the web search's field (Enter opens
+ * the results in the panel, in the segment's category) and a word on what opens here.
+ */
+function ListsAside({ cat }: { cat: 'web' | 'shopping' }) {
+  const enabled = useSearchEnabled();
+  const [q, setQ] = useState('');
+  const go = () => {
+    if (q.trim()) openSearch({ q: q.trim(), cat });
+  };
+  return (
+    <section className="card lists-aside" aria-labelledby="la-h" data-testid="lists-aside">
+      {enabled ? (
+        <>
+          <h2 id="la-h">Search the web</h2>
+          <p className="secondary">The results open here, beside the list: file one into Links, Wishlist, Shopping or Notes and it is in the list at once.</p>
+          <div className="edit-row">
+            <input className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && go()} placeholder={cat === 'shopping' ? 'What to buy' : 'What to look for'} aria-label="Search the web" enterKeyHint="search" data-testid="lists-search-input" />
+            <button type="button" className="btn btn-primary" disabled={!q.trim()} onClick={go} aria-label="Search" data-testid="lists-search-go">
+              <Search aria-hidden />
+            </button>
+          </div>
+        </>
+      ) : (
+        <h2 id="la-h">Details</h2>
+      )}
+      <p className="caption">A task, note or item you open shows here, and the list stays beside it.</p>
+    </section>
+  );
+}
+
 function Segment({ tab }: { tab: Tab }) {
   if (tab === 'tasks') return <TasksTab />;
   if (tab === 'notes') return <NotesTab />;
@@ -597,12 +632,16 @@ export function ListsScreen() {
     [],
   );
   const refs = useMemo(() => Object.fromEntries(TABS.map((x) => [x.value, segRef(x.value)])) as Record<Tab, (el: HTMLElement | null) => void>, [segRef]);
-  return (
-    <div className="page lists" data-testid="lists">
-      <div className="page-head">
-        <h1>Lists</h1>
-        <SearchButton cat={t === 'shopping' || t === 'wishlist' ? 'shopping' : 'web'} />
-      </div>
+  const desk = useMedia(WIDE);
+  const cat = t === 'shopping' || t === 'wishlist' ? 'shopping' : 'web';
+  const head = (
+    <div className="page-head">
+      <h1>Lists</h1>
+      <SearchButton cat={cat} />
+    </div>
+  );
+  const main = (
+    <>
       <div className="lists-switch">
         <Segmented label="List" fill value={t} onChange={(v) => v !== t && navigate(`/lists/${v}`)} options={TABS.map((x) => ({ ...x, testId: `list-${x.value}` }))} testId="lists-switch" />
       </div>
@@ -613,6 +652,23 @@ export function ListsScreen() {
           </section>
         ))}
       </div>
+    </>
+  );
+  // the big screen: the list and its side panel (round 8f)
+  if (desk)
+    return (
+      <div className="page lists lists-desk" data-testid="lists">
+        {head}
+        <div className="lists-main">{main}</div>
+        <SidePanel label="Search and details" testId="lists-panel">
+          <ListsAside cat={cat} />
+        </SidePanel>
+      </div>
+    );
+  return (
+    <div className="page lists" data-testid="lists">
+      {head}
+      {main}
     </div>
   );
 }

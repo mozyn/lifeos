@@ -2,12 +2,15 @@
  * Today (spec §6): the three moments. Time of day picks the mode (before 11:00 morning, 11–17
  * midday, after 17:00 evening); the segmented control in the top bar switches. At most four cards
  * above the fold on a 412 px screen; everything else is one tap away. On the fold's inner screen,
- * two panes: the moment's cards and the week strip.
+ * two panes: the moment's cards and the week strip. On the big screen (round 8f, ADR-107), two
+ * columns: the date, the moment's plan and tasks; beside them the prayer times, the check-in and
+ * the habits (and the week ahead under them, or in a third column from 1800 px).
  */
 import { type ReactNode, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { Moon, Sun, Sunrise } from 'lucide-react';
 import { hm12, shortDateDow } from '@lifeos/shared';
 import { Segmented, useMedia } from '../../components/ui';
+import { WIDE } from '../../lib/dock';
 import { TopBarSlot, useGo } from '../../shell/context';
 import { setSegState, switchSegment, warmSegments } from '../../lib/segments';
 import { rewardBig } from '../../lib/rewards';
@@ -17,7 +20,7 @@ import { isNarrow } from '../../lib/viewport';
 import type { Today, Week } from '../../lib/types';
 import { EventRow } from '../calendar/parts';
 import { DayHeader } from './DayHeader';
-import { CheckinCard, ChipStrip, FocusCard, PlanCard, ProgressCard, RemainingCard, ReviewCard, SessionDone, TomorrowCard, UnsortedCard, WhatChanged } from './cards';
+import { CheckinCard, ChipStrip, FocusCard, HabitsCard, PlanCard, ProgressCard, RemainingCard, ReviewCard, SessionDone, TomorrowCard, UnsortedCard, WhatChanged } from './cards';
 
 export type Mode = 'morning' | 'midday' | 'evening';
 const MODES: Mode[] = ['morning', 'midday', 'evening'];
@@ -91,10 +94,53 @@ const MODE_LABEL: Record<Mode, string> = { morning: 'Morning', midday: 'Midday',
 /** under 400 px (round-3 brief §5): an icon over the label in 12 px (the tab bar's size), so the switch fits beside the eye, the sun/moon and the gear */
 const MODE_ICON: Record<Mode, ReactNode> = { morning: <Sunrise aria-hidden />, midday: <Sun aria-hidden />, evening: <Moon aria-hidden /> };
 
-/** One moment's cards: one selection scope (round-3 brief §4), so Select in a task's hold menu picks up any of its tasks. */
-function MomentCards({ m, today, hm }: { m: Mode; today: Today; hm: string }) {
+/**
+ * One moment's cards: one selection scope (round-3 brief §4), so Select in a task's hold menu picks up any of its tasks.
+ * `part` (the big screen): `main` is the plan and the tasks, `side` the check-in, progress and habits.
+ */
+function MomentCards({ m, today, hm, part }: { m: Mode; today: Today; hm: string; part?: 'main' | 'side' }) {
   let cards;
-  if (m === 'morning')
+  if (part === 'main')
+    cards =
+      m === 'morning' ? (
+        <>
+          <PlanCard today={today} />
+          <FocusCard today={today} />
+          <ChipStrip today={today} habits={false} />
+        </>
+      ) : m === 'midday' ? (
+        <>
+          <WhatChanged today={today} />
+          <RemainingCard today={today} hm={hm} />
+          <ChipStrip today={today} habits={false} />
+        </>
+      ) : (
+        <>
+          {today.session.complete && <SessionDone />}
+          <ReviewCard today={today} habits={false} />
+          <UnsortedCard today={today} />
+          <TomorrowCard today={today} />
+        </>
+      );
+  else if (part === 'side')
+    cards =
+      m === 'morning' ? (
+        <>
+          <CheckinCard today={today} moment="morning" />
+          <HabitsCard today={today} />
+        </>
+      ) : m === 'midday' ? (
+        <>
+          <ProgressCard today={today} />
+          <HabitsCard today={today} />
+        </>
+      ) : (
+        <>
+          <CheckinCard today={today} moment="evening" rows={['mood', 'energy']} title="How was today?" dismissible={false} inline />
+          <HabitsCard today={today} />
+        </>
+      );
+  else if (m === 'morning')
     cards = (
       <>
         <PlanCard today={today} />
@@ -131,7 +177,7 @@ function MomentCards({ m, today, hm }: { m: Mode; today: Today; hm: string }) {
  * cross-fade in one grid cell, so the cards' container never collapses and nothing below jumps;
  * each moment keeps its own scroll position; with reduced motion the switch is instant.
  */
-function Moments({ mode, today, hm }: { mode: Mode; today: Today; hm: string }) {
+function Moments({ mode, today, hm, part }: { mode: Mode; today: Today; hm: string; part?: 'main' | 'side' }) {
   const bodyRef = useRef<HTMLDivElement>(null);
   const [mounted, setMounted] = useState<ReadonlySet<Mode>>(() => new Set([mode]));
   const shown = useRef<Mode>(mode);
@@ -159,10 +205,10 @@ function Moments({ mode, today, hm }: { mode: Mode; today: Today; hm: string }) 
   );
   const refs = useMemo(() => Object.fromEntries(MODES.map((m) => [m, segRef(m)])) as Record<Mode, (el: HTMLElement | null) => void>, [segRef]);
   return (
-    <div className="today-moments" ref={bodyRef} data-testid="today-moments">
+    <div className="today-moments" ref={bodyRef} data-testid={part === 'side' ? 'today-moments-side' : 'today-moments'}>
       {MODES.filter((m) => has.has(m)).map((m) => (
-        <section key={m} className="seg-pane today-moment" data-seg={m} ref={refs[m]} aria-label={MODE_LABEL[m]} data-testid={`moment-${m}`}>
-          <MomentCards m={m} today={today} hm={hm} />
+        <section key={m} className="seg-pane today-moment" data-seg={m} ref={refs[m]} aria-label={part === 'side' ? `${MODE_LABEL[m]}: check-in and habits` : MODE_LABEL[m]} data-testid={part === 'side' ? `moment-side-${m}` : `moment-${m}`}>
+          <MomentCards m={m} today={today} hm={hm} part={part} />
         </section>
       ))}
     </div>
@@ -179,6 +225,7 @@ export function TodayScreen() {
   // a selection belongs to the moment it started in
   useEffect(() => endSelectIn('today:'), [mode]);
   const wide = useMedia('(min-width: 700px)');
+  const desk = useMedia(WIDE);
   const narrow = isNarrow();
   const hm = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
 
@@ -220,6 +267,26 @@ export function TodayScreen() {
       </div>
     );
   }
+
+  if (desk)
+    return (
+      <div className="page today today-desk" data-mode={mode} data-testid={`today-${mode}`}>
+        {control}
+        <div className="today-cols">
+          <div className="today-main">
+            <DayHeader today={today} now={now} part="title" />
+            <Moments mode={mode} today={today} hm={hm} part="main" />
+          </div>
+          <aside className="today-side" aria-label="Prayer times, check-in and habits">
+            <DayHeader today={today} now={now} part="prayers" />
+            <Moments mode={mode} today={today} hm={hm} part="side" />
+          </aside>
+          <aside className="today-week" aria-label="The week ahead">
+            <WeekStrip today={today} />
+          </aside>
+        </div>
+      </div>
+    );
 
   return (
     <div className="page today" data-mode={mode} data-testid={`today-${mode}`}>

@@ -85,6 +85,7 @@ export function QuickAdd({ open, onClose, initialType }: { open: boolean; onClos
       initialFocus="input"
       testId="quick-add-sheet"
       className="sheet-quick"
+      dock={false}
       footer={
         <button type="button" className="btn btn-primary btn-block" disabled={!text.trim() || busy} onClick={() => void submit()} data-testid="quick-add-submit">
           {group ? 'Add group' : t.action}

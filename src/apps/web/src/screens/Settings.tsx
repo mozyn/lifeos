@@ -3,13 +3,15 @@
  * Hermes (product brief 9 §3), Privacy, Gestures, the Advanced settings switch and About. Advanced,
  * under one header while that switch is on: Look and feel, Prayer, AI, Telegram bot, Address (round
  * 8c), Search, Diagnostics, Data. Nothing was removed, only moved. Device settings live on the device;
- * everything else is stored by the API (never in the vault).
+ * everything else is stored by the API (never in the vault). On the big screen (round 8f, ADR-107)
+ * the sections are a list on the left and the one chosen is shown beside it (`?s=` names it).
  */
-import { type ReactNode, useEffect, useState } from 'react';
+import { createContext, type ReactNode, useContext, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
 import { hm12, instantText, localZone, noteLabel, numericDate, type PrayerMethod, releaseName, releasesDiffer, shortDateYear, zonedParts } from '@lifeos/shared';
 import { ArrowLeft, ArrowRight, Check, ExternalLink, X } from 'lucide-react';
-import { Disclosure, Segmented, Slider, Switch } from '../components/ui';
+import { Disclosure, Segmented, Slider, Switch, useMedia } from '../components/ui';
+import { WIDE } from '../lib/dock';
 import { coords, type Place, PlacePicker } from '../components/PlacePicker';
 import { HijriAdjust, MethodSelect } from '../components/PrayerFields';
 import { ProviderFields } from '../components/AiProvider';
@@ -80,11 +82,33 @@ const MOVED: Record<string, string> = { system: 'diagnostics' };
 const SPEC_PATH = 'Projects/lifeos/lifeos-master-plan';
 const specUrl = (vault: string) => `obsidian://open?vault=${encodeURIComponent(vault)}&file=${encodeURIComponent(SPEC_PATH)}`;
 
+/** The big screen's list of sections (round 8f): the Simple ones, the Advanced ones while that is on, About. */
+const SIMPLE_NAV: [string, string][] = [
+  ['appearance', 'Appearance'],
+  ['reminders', 'Reminders'],
+  ['hermes', 'Hermes'],
+  ['privacy', 'Privacy'],
+  ['gestures', 'Gestures'],
+];
+const ADVANCED_NAV: [string, string][] = [
+  ['look', 'Look and feel'],
+  ['prayer', 'Prayer'],
+  ['ai', 'AI'],
+  ['telegram', 'Telegram bot'],
+  ['address', 'Address'],
+  ['search', 'Search'],
+  ['diagnostics', 'Diagnostics'],
+  ['data', 'Data'],
+];
+/** The section shown beside the list on the big screen (null: every section, as on a phone). */
+const ChosenCtx = createContext<string | null>(null);
+
 /** One group: its heading and one section (a solid face under a glass rim, rows separated by lines). */
 function Section({ title, id, level = 2, testId, children }: { title: string; id: string; level?: 2 | 3; testId?: string; children: ReactNode }) {
   const H = level === 3 ? 'h3' : 'h2';
+  const chosen = useContext(ChosenCtx);
   return (
-    <section className="settings-section" id={id} aria-labelledby={`${id}-h`}>
+    <section className="settings-section" id={id} aria-labelledby={`${id}-h`} data-chosen={chosen === id ? '' : undefined}>
       <H id={`${id}-h`}>{title}</H>
       <div className="card settings-card" data-testid={testId}>
         {children}
@@ -131,11 +155,17 @@ function GlassQualityRow() {
 export function SettingsScreen() {
   const { prefs, setPrefs, theme } = usePrefs();
   const { data, reload } = useResource<SettingsDto>('api/settings');
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
   const advanced = useAdvanced();
+  const desk = useMedia(WIDE);
+  const [picked, setPicked] = useState('appearance');
+  const navIds = [...SIMPLE_NAV, ...(advanced ? ADVANCED_NAV : []), ['about', 'About']].map(([id]) => id);
+  // the big screen: the section chosen (one in Advanced while Advanced is off: the first one)
+  const chosen = desk ? (navIds.includes(picked) ? picked : 'appearance') : null;
 
   // a link to a section scrolls to it; one in Advanced turns Advanced on first (it stays on: the
-  // switch shows it, and it is the owner's to turn off)
+  // switch shows it, and it is the owner's to turn off). On the big screen the link chooses the
+  // section that holds it.
   useEffect(() => {
     const raw = params.get('s');
     const s = raw ? (MOVED[raw] ?? raw) : null;
@@ -145,8 +175,18 @@ export function SettingsScreen() {
       return;
     }
     const el = document.getElementById(s);
+    if (desk) {
+      const section = s === 'advanced' ? 'look' : (el?.closest<HTMLElement>('.settings-section')?.id ?? s);
+      setPicked(section);
+      if (el && el.id !== section) requestAnimationFrame(() => whenVisible(el, () => el.scrollIntoView({ block: 'start' })));
+      return;
+    }
     if (el) whenVisible(el, () => el.scrollIntoView({ block: 'start' }));
-  }, [params, data, advanced]);
+  }, [params, data, advanced, desk]);
+  const choose = (id: string) => {
+    setPicked(id);
+    setParams({ s: id }, { replace: true });
+  };
 
   const save: Save = async (patch) => {
     try {
@@ -171,9 +211,41 @@ export function SettingsScreen() {
   };
   const loading = <p className="secondary">Loading…</p>;
 
+  const advancedSwitch = (
+    <section className="settings-section settings-switch" aria-label="Advanced settings">
+      <div className="card settings-card">
+        <Switch label="Advanced settings" hint="Prayer, AI, Telegram bot, search, diagnostics, data" checked={advanced} onChange={setAdvanced} testId="advanced-switch" />
+      </div>
+    </section>
+  );
+  const navItem = ([id, label]: [string, string]) => (
+    <li key={id}>
+      <button type="button" className="settings-nav-item" aria-current={chosen === id ? 'true' : undefined} onClick={() => choose(id)} data-testid={`settings-nav-${id}`}>
+        {label}
+      </button>
+    </li>
+  );
+
   return (
-    <div className="page settings" data-testid="settings" data-advanced={advanced ? '' : undefined}>
-      <h1 className="page-title">Settings</h1>
+    <ChosenCtx.Provider value={chosen}>
+    <div className={`page settings${desk ? ' settings-desk' : ''}`} data-testid="settings" data-advanced={advanced ? '' : undefined}>
+      {desk ? (
+        <nav className="settings-nav" aria-label="Settings sections" data-testid="settings-nav">
+          <h1 className="page-title">Settings</h1>
+          <ul>{SIMPLE_NAV.map(navItem)}</ul>
+          {advancedSwitch}
+          {advanced && (
+            <>
+              <p className="settings-nav-group">Advanced</p>
+              <ul>{ADVANCED_NAV.map(navItem)}</ul>
+            </>
+          )}
+          <ul>{navItem(['about', 'About'])}</ul>
+        </nav>
+      ) : (
+        <h1 className="page-title">Settings</h1>
+      )}
+      <div className="settings-sections">
 
       <Section title="Appearance" id="appearance">
         <div className="setting-row">
@@ -216,11 +288,7 @@ export function SettingsScreen() {
         <GestureSettings />
       </Section>
 
-      <section className="settings-section settings-switch" aria-label="Advanced settings">
-        <div className="card settings-card">
-          <Switch label="Advanced settings" hint="Prayer, AI, Telegram bot, search, diagnostics, data" checked={advanced} onChange={setAdvanced} testId="advanced-switch" />
-        </div>
-      </section>
+      {!desk && advancedSwitch}
 
       {advanced && (
         <div className="settings-advanced" id="advanced" role="region" aria-labelledby="advanced-h" data-testid="advanced">
@@ -340,7 +408,9 @@ export function SettingsScreen() {
           </div>
         </div>
       </Section>
+      </div>
     </div>
+    </ChosenCtx.Provider>
   );
 }
 

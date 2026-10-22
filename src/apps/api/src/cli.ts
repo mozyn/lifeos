@@ -7,7 +7,13 @@
  *   push-key      where this install's browser-notification keys come from (env | stored | none)
  *                 and the public key; never the private one
  * Secrets stay in the container's environment; nothing here prints them.
+ *
+ * `docker exec` runs it as root when compose has no `user:` line (the shared compose, ADR-105): it
+ * then runs itself again as the API's user (the owner the entrypoint gave /data), so a file it
+ * writes (the database's journal) is never root's.
  */
+import { spawnSync } from 'node:child_process';
+import { statSync } from 'node:fs';
 import { join } from 'node:path';
 import { instantText } from '@lifeos/shared';
 import { loadConfig } from './config.js';
@@ -18,6 +24,19 @@ import { TelegramSender } from './telegram.js';
 import { generateVapidKeys, isVapidKeys } from './push.js';
 import { BrowserPush } from './browser-push.js';
 import { Vault } from './vault/vault.js';
+
+if (process.getuid?.() === 0) {
+  const data = process.env.LIFEOS_DATA || '/data';
+  let id = { uid: 1000, gid: 1000 };
+  try {
+    const st = statSync(data);
+    if (st.uid !== 0) id = { uid: st.uid, gid: st.gid || st.uid };
+  } catch {
+    /* no data folder: 1000, as the API would */
+  }
+  const r = spawnSync('setpriv', [`--reuid=${id.uid}`, `--regid=${id.gid}`, '--clear-groups', '--no-new-privs', process.execPath, ...process.execArgv, ...process.argv.slice(1)], { stdio: 'inherit' });
+  process.exit(r.status ?? 1);
+}
 
 const [cmd, arg] = process.argv.slice(2);
 // install.sh's key pair: printed for its mode-600 file, before any database is opened

@@ -1,8 +1,9 @@
 /**
  * Calendar → Week (spec §4.2; round-2 brief §3 keeps it): seven days of events (the weekly note,
  * §5.9), tasks due, prayer times and Hijri dates; an agenda on the phone, seven columns on the fold
- * and desktop. Each day shows its streak mark (§4). Tasks and events can be selected together
- * (round-3 brief §4).
+ * (840 px). Each day shows its streak mark (§4). Tasks and events can be selected together
+ * (round-3 brief §4). On the big screen (round 8f, ADR-107) it is a time grid: the seven days side
+ * by side in hour rows (TimeGrid), a day's head opening the day in the side panel.
  */
 import { useEffect, useRef } from 'react';
 import { FIVE, hm12, longDate, PRAYER_LABELS, WEEKDAYS_SHORT, weekday } from '@lifeos/shared';
@@ -12,6 +13,7 @@ import type { Week, WeekDay } from '../../lib/types';
 import { whenShown } from '../../lib/panes';
 import { SelectScope } from '../../lib/selection';
 import { DayMarkButton, EventRow, PrayerLine } from './parts';
+import { TimeGrid } from './TimeGrid';
 
 function DayAgenda({ d, today, prayers, onOpen }: { d: WeekDay; today: string; prayers: boolean; onOpen: (date: string) => void }) {
   const isToday = d.date === today;
@@ -88,7 +90,7 @@ function DayColumn({ d, today, prayers, onOpen }: { d: WeekDay; today: string; p
   );
 }
 
-export function WeekView({ data, today, start, prayers, thisWeek, onOpen, daysRef, active }: { data: Week | null; today: string; start: string; prayers: boolean; thisWeek: boolean; onOpen: (date: string) => void; daysRef: React.RefObject<HTMLDivElement | null>; active: boolean }) {
+export function WeekView({ data, today, start, prayers, thisWeek, onOpen, daysRef, active, desk = false, nowHm = '00:00', selected = null, onSelect }: { data: Week | null; today: string; start: string; prayers: boolean; thisWeek: boolean; onOpen: (date: string) => void; daysRef: React.RefObject<HTMLDivElement | null>; active: boolean; desk?: boolean; nowHm?: string; selected?: string | null; onSelect?: (date: string) => void }) {
   const wide = useMedia('(min-width: 700px)');
   const scrolled = useRef<string | null>(null);
   useEffect(() => {
@@ -108,7 +110,9 @@ export function WeekView({ data, today, start, prayers, thisWeek, onOpen, daysRe
         // one selection scope for the week (round-3 brief §4): Select in a row's hold menu, then any
         // task or event of the seven days
         <SelectScope.Provider value={`week:${data.days[0]?.date ?? start}`}>
-          {wide ? (
+          {desk ? (
+            <TimeGrid days={data.days} today={today} nowHm={nowHm} prayers={prayers} tasks selected={selected} onSelect={(d) => onSelect?.(d)} onOpen={onOpen} active={active} testId="week-grid" />
+          ) : wide ? (
             <div className="wk-grid">
               {data.days.map((d) => (
                 <DayColumn key={d.date} d={d} today={today} prayers={prayers} onOpen={onOpen} />

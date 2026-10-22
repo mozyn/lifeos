@@ -1,11 +1,12 @@
 /**
- * HTTP plumbing: error mapping (a vault conflict is a visible 409, never a silent overwrite) and
- * idempotency keys for writes (the PWA outbox replays with the same key; the second delivery gets
- * the first answer and writes nothing).
+ * HTTP plumbing: error mapping (a vault conflict is a visible 409, never a silent overwrite; a
+ * write the system refuses is a plain 507, ADR-105) and idempotency keys for writes (the PWA
+ * outbox replays with the same key; the second delivery gets the first answer and writes nothing).
  */
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { ZodError } from 'zod';
 import { type DB, nowIso } from './db.js';
+import { refusalOf, type Roots, unwritableAnswer } from './unwritable.js';
 import { WriteConflict } from './vault/fsio.js';
 import { Conflict, Forbidden, NotFound } from './vault/ops.js';
 import { PathError } from './vault/paths.js';
@@ -21,7 +22,8 @@ export class HttpError extends Error {
   }
 }
 
-export function installErrors(app: FastifyInstance): void {
+/** `roots`: the notes folder and LifeOS's own folders, where a refused write is named (ADR-105). */
+export function installErrors(app: FastifyInstance, roots: Roots | null = null): void {
   app.setErrorHandler((err: unknown, _req, reply) => {
     if (err instanceof LineNotFound) return reply.code(409).send({ error: 'line_changed', message: err.message, path: err.path });
     if (err instanceof WriteConflict || err instanceof Conflict) return reply.code(409).send({ error: 'conflict', message: (err as Error).message });
@@ -32,6 +34,13 @@ export function installErrors(app: FastifyInstance): void {
     if (err instanceof HttpError) return reply.code(err.status).send({ error: err.code, message: err.message });
     const e = err as { statusCode?: number; message?: string; validation?: unknown };
     if (e.statusCode && e.statusCode < 500) return reply.code(e.statusCode).send({ error: 'request', message: e.message });
+    // EACCES, EPERM, EROFS in the notes folder or LifeOS's own: who owns it, whom LifeOS runs as, the fix
+    const refused = roots ? refusalOf(err, roots) : null;
+    if (refused) {
+      const a = unwritableAnswer(refused);
+      reply.log.warn(`${a.error}: ${e.message}`);
+      return reply.code(a.status).send({ error: a.error, message: a.message });
+    }
     reply.log.error(err);
     return reply.code(500).send({ error: 'internal', message: 'Something went wrong on the server.' });
   });

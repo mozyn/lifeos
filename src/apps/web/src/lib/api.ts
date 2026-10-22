@@ -1,7 +1,8 @@
 /**
  * The API client. Every URL is relative to the app's base (`/lifeos/`), so the app works on the
  * tailnet path and on http://127.0.0.1:8480/lifeos/ alike (ADR-9). Writes carry the app header and
- * an idempotency key; a 401 asks the shell to show the passphrase screen.
+ * an idempotency key; a 401 asks the shell to show the passphrase screen. A refused write
+ * (`vault_unwritable`, ADR-105) carries the server's own words, which the screens show.
  */
 export const BASE = import.meta.env.BASE_URL.endsWith('/') ? import.meta.env.BASE_URL : `${import.meta.env.BASE_URL}/`;
 
@@ -71,6 +72,8 @@ async function request<T>(path: string, o: ApiOptions): Promise<{ body: T; text:
   if (!res.ok) {
     const b = (body ?? {}) as { error?: string; message?: string };
     if (res.status === 401) window.dispatchEvent(new CustomEvent('lifeos:signed-out'));
+    // the notes folder refused the write: its line under the top bar asks health again (ADR-105)
+    if (b.error === 'vault_unwritable') window.dispatchEvent(new CustomEvent('lifeos:vault-unwritable'));
     if (res.status >= 502 && res.status <= 504) throw new NetworkError('server unreachable');
     throw new ApiError(res.status, b.error ?? 'error', b.message ?? `Request failed (${res.status})`);
   }

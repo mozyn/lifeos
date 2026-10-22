@@ -1,14 +1,19 @@
 /**
  * Habits (spec §4.4, §5.5, §9 job 3): build and quit habits, today's log in one tap, streaks, the
  * month calendar, and the slip flow — a slip is logged without drama, then a verbatim library entry
- * and a short encouragement (labelled "From LifeOS") are shown.
+ * and a short encouragement (labelled "From LifeOS") are shown. On the big screen (round 8f,
+ * ADR-107) it is master and detail: the habits on the left; the one opened (its edit, past days and
+ * archive) or a slip's flow in the side panel, which shows the streaks and the day's reminder
+ * while nothing is open.
  */
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Archive, Eye, EyeOff, MoreHorizontal, Pencil, Plus } from 'lucide-react';
 import { addDays, longDate, mondayOf, monthStates, monthYear, parseSchedule, shortDate, shortDateDow, todayIn, weekday, type DayState } from '@lifeos/shared';
 import { FromLifeOS, HadithEntry, type Entry } from '../components/Hadith';
 import { Curtained, habitName } from '../components/Private';
-import { Segmented, Sheet, Switch } from '../components/ui';
+import { Segmented, Sheet, Switch, useMedia } from '../components/ui';
+import { SidePanel } from '../components/SidePanel';
+import { WIDE } from '../lib/dock';
 import { usePrivacy } from '../lib/privacy';
 import { ApiError } from '../lib/api';
 import { rewardBig, rewardSmall } from '../lib/rewards';
@@ -237,7 +242,7 @@ async function setPrivate(h: Habit, on: boolean): Promise<void> {
   }
 }
 
-function HabitCard({ h, today, onSlip, onOpen }: { h: Habit; today: string; onSlip: (h: Habit, date: string) => void; onOpen: (h: Habit, el: HTMLElement) => void }) {
+function HabitCard({ h, today, onSlip, onOpen, selected = false }: { h: Habit; today: string; onSlip: (h: Habit, date: string) => void; onOpen: (h: Habit, el: HTMLElement) => void; selected?: boolean }) {
   const privacy = usePrivacy();
   const [value, setValue] = useState(h.today);
   const { data: nudge } = useResource<{ nudge: NudgeDto | null }>(h.today === 'slip' ? `api/habits/nudge?path=${encodeURIComponent(h.path)}` : null);
@@ -258,7 +263,7 @@ function HabitCard({ h, today, onSlip, onOpen }: { h: Habit; today: string; onSl
     }
   };
   return (
-    <Curtained as="section" isPrivate={h.private} className="card habit" testId="habit-card" aria-label={habitName(h, privacy)}>
+    <Curtained as="section" isPrivate={h.private} className={`card habit${selected ? ' is-selected' : ''}`} testId="habit-card" aria-label={habitName(h, privacy)} aria-current={selected ? 'true' : undefined}>
       {/* touch and hold the habit's name for its menu (round-2 brief §12) */}
       <SwipeRow
         plain
@@ -549,15 +554,8 @@ export function HabitsScreen() {
   const rate = weekRate(active, today);
   // the sheet follows the habit's latest data (after a save the list refreshes)
   const current = open ? (active.find((h) => h.path === open.path) ?? null) : null;
-  return (
-    <div className="page habits" data-testid="habits">
-      <div className="page-head">
-        <h1>Habits</h1>
-        <button type="button" className="btn btn-primary" onClick={() => setCreating(true)} data-testid="new-habit-button">
-          <Plus aria-hidden /> New habit
-        </button>
-      </div>
-      {active.length > 0 && (
+  const desk = useMedia(WIDE);
+  const stats = active.length > 0 && (
         <dl className="habit-stats" data-testid="habit-stats">
           <div>
             <dt>Longest streak</dt>
@@ -575,7 +573,18 @@ export function HabitsScreen() {
             <span className="caption">{rate.total ? `${rate.kept} of ${rate.total} days kept` : 'Nothing due yet'}</span>
           </div>
         </dl>
-      )}
+  );
+  const head = (
+    <div className="page-head">
+      <h1>Habits</h1>
+      <button type="button" className="btn btn-primary" onClick={() => setCreating(true)} data-testid="new-habit-button">
+        <Plus aria-hidden /> New habit
+      </button>
+    </div>
+  );
+  const list = (
+    <>
+      {!desk && stats}
       {data && active.length === 0 && (
         <section className="card">
           <p className="secondary">No habits yet. Build one (a morning walk) or quit one (late-night scrolling).</p>
@@ -583,10 +592,23 @@ export function HabitsScreen() {
       )}
       <div className="habit-list">
         {active.map((h) => (
-          <HabitCard key={h.path} h={h} today={today} onSlip={(x, date) => setSlip({ h: x, date })} onOpen={(x, el) => void drillIn(el, () => setOpen(x))} />
+          <HabitCard key={h.path} h={h} today={today} onSlip={(x, date) => setSlip({ h: x, date })} onOpen={(x, el) => void drillIn(el, () => setOpen(x))} selected={desk && current?.path === h.path} />
         ))}
-        <DailyPick />
+        {!desk && <DailyPick />}
       </div>
+    </>
+  );
+  return (
+    <div className={`page habits${desk ? ' habits-desk' : ''}`} data-testid="habits">
+      {head}
+      {desk ? <div className="habits-main">{list}</div> : list}
+      {desk && (
+        <SidePanel label="The habit opened" testId="habits-panel">
+          {stats}
+          <DailyPick />
+          <p className="caption habits-hint">Open a habit (⋯) to edit it, log a past day or archive it; it opens here, beside the list.</p>
+        </SidePanel>
+      )}
       <NewHabit open={creating} onClose={() => setCreating(false)} />
       {current && <HabitSheet h={current} today={today} onClose={() => setOpen(null)} onSlip={(x, date) => setSlip({ h: x, date })} />}
       {slip && <SlipSheet h={slip.h} date={slip.date} onClose={() => setSlip(null)} />}

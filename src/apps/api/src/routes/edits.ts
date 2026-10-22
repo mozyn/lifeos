@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { joinPlace } from '@lifeos/shared';
 import type { Ctx } from '../context.js';
 import { HttpError } from '../http.js';
+import { refusedText, rootsOf } from '../unwritable.js';
 import { type LineKind, NOTE_FOLDERS, type NoteFolder } from '../vault/edit-ops.js';
 import { Anchor } from './tasks.js';
 
@@ -168,7 +169,8 @@ export function editRoutes(app: FastifyInstance, ctx: Ctx): void {
         await fn();
         done++;
       } catch (err) {
-        failed.push({ ref, message: (err as Error).message });
+        // a refused write says whose the folder is and the fix, as a single write would (ADR-105)
+        failed.push({ ref, message: refusedText(err, rootsOf(ctx.config)) ?? (err as Error).message });
       }
     };
     if (b.op === 'archive' || (b.op === 'move' && b.folder)) {
