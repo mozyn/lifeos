@@ -7,7 +7,7 @@
  */
 import { type ReactNode, useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
-import { hm12, instantText, localZone, noteLabel, numericDate, type PrayerMethod, shortDateYear, zonedParts } from '@lifeos/shared';
+import { hm12, instantText, localZone, noteLabel, numericDate, type PrayerMethod, releaseName, releasesDiffer, shortDateYear, zonedParts } from '@lifeos/shared';
 import { ArrowLeft, ArrowRight, Check, ExternalLink, X } from 'lucide-react';
 import { Disclosure, Segmented, Slider, Switch } from '../components/ui';
 import { coords, type Place, PlacePicker } from '../components/PlacePicker';
@@ -17,7 +17,7 @@ import { HermesSettings, TelegramRow } from '../components/Hermes';
 import { draftFrom, type ProviderDraft, type ProviderView, toBody } from '../lib/ai';
 import { api, ApiError } from '../lib/api';
 import { advancedOn, setAdvanced, useAdvanced } from '../lib/advanced';
-import { BUILD } from '../lib/build';
+import { BUILD, reloadApp } from '../lib/build';
 import { type FrameMode, type FrameReport, lastReport, measureFrames, reportText, slidesText } from '../lib/frames';
 import { applyAppearance, glassQuality, type Prefs, resolveTheme, usePrefs } from '../lib/prefs';
 import { revealTheme } from '../lib/transitions';
@@ -340,18 +340,48 @@ export function SettingsScreen() {
   );
 }
 
-/** Settings → About: this build, the day LifeOS was set up, the spec (when the notes have it). */
+/**
+ * Settings → About: the release this page is and the day it was built (ADR-103), the day LifeOS was
+ * set up, the spec (when the notes have it). An update replaces both images, but a phone may hold
+ * the old page: when the server's release is another one, the row says so and offers a reload
+ * (from a fresh answer only, never from the copy kept on the device).
+ */
 function AboutRows({ vaultName }: { vaultName: string }) {
-  const { data } = useResource<{ version: string; setupAt: string | null; spec?: boolean }>('api/system/about');
+  const { data, stale } = useResource<{ version: string; release?: string; setupAt: string | null; spec?: boolean }>('api/system/about');
+  const [reloading, setReloading] = useState(false);
   const day = (iso: string) => shortDateYear(zonedParts(new Date(iso), localZone()).date);
+  const server = data && !stale && releasesDiffer(BUILD.release, data.release) ? releaseName(data.release!, data.version) : null;
   return (
     <>
       <div className="setting-row">
-        <span>Version</span>
-        <span className="secondary num" data-testid="about-version">
-          {BUILD.version} · {BUILD.commit}
-          {BUILD.builtAt ? ` · ${day(BUILD.builtAt)}` : ''}
+        <span className="setting-label">
+          <span data-testid="about-version">{releaseName(BUILD.release, BUILD.version)}</span>
+          {server && (
+            <span className="caption" data-testid="about-updated">
+              The app was updated to {server}: reload.
+            </span>
+          )}
         </span>
+        {server ? (
+          <button
+            type="button"
+            className="btn"
+            disabled={reloading}
+            onClick={() => {
+              setReloading(true);
+              void reloadApp();
+            }}
+            data-testid="about-reload"
+          >
+            Reload
+          </button>
+        ) : (
+          BUILD.builtAt && (
+            <span className="secondary num" data-testid="about-built">
+              {day(BUILD.builtAt)}
+            </span>
+          )
+        )}
       </div>
       <div className="setting-row">
         <span>Set up on</span>

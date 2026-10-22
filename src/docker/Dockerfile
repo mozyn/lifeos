@@ -22,7 +22,8 @@ COPY tsconfig.base.json ./
 COPY packages/shared packages/shared
 COPY apps/api apps/api
 COPY apps/web apps/web
-# the commit the UI was built from (scripts/*.sh pass it; Settings → About shows it)
+# the release (ADR-103): a tag from the published images' CI, the commit from scripts/*.sh, dev
+# otherwise; the UI bakes it in, and the api image below keeps it in its environment
 ARG LIFEOS_BUILD=dev
 RUN npm run build -w @lifeos/shared && npm run build -w @lifeos/api && npm run build -w @lifeos/web \
   && npm prune --omit=dev
@@ -49,6 +50,9 @@ COPY fixtures/starter-vault starter-vault
 # volume there unless LIFEOS_AUTH_DIR is set (ADR-90)
 RUN mkdir -p /data /vault /auth && chown node:node /data /vault /auth && chmod 0777 /data /auth
 USER node
+# the release this image is (GET /api/health `release`); last, so a new one changes one layer
+ARG LIFEOS_BUILD=dev
+ENV LIFEOS_BUILD=$LIFEOS_BUILD
 EXPOSE 8481
 CMD ["node", "apps/api/dist/server.js"]
 

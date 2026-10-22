@@ -160,7 +160,8 @@ press **Deploy** (or in a shell run `docker compose pull && docker compose up -d
 new LifeOS folder, replace `compose.yaml` and `README.md` with the new ones. Keep `.env` and any
 other `.env.…` files: they are your settings. Your notes, passphrase and LifeOS's database stay.
 Settings that are new in a version have defaults; compare the new folder's `.env` with yours to
-see them.
+see them. Settings → About names the release you run ("LifeOS v0.1.3"); a phone that still has the
+old page open says "The app was updated" there, with a Reload button.
 
 ## On your phone
 

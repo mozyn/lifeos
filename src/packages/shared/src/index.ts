@@ -18,3 +18,4 @@ export * from './calendar.js';
 export * from './groups.js';
 export * from './edits.js';
 export * from './private.js';
+export * from './release.js';

@@ -39,7 +39,7 @@ import { EditOps } from './vault/edit-ops.js';
 import { editRoutes } from './routes/edits.js';
 import { Vault } from './vault/vault.js';
 import { isEmptyFolder, seedStarter, vaultAccess, vaultAccessMessage } from './vault/starter.js';
-import { VERSION } from './version.js';
+import { RELEASE, VERSION } from './version.js';
 import { IntegrationTokens } from './integration/tokens.js';
 import { AgentOutbox, agentHolds, nudgeKey } from './integration/outbox.js';
 import { AgentJobs } from './integration/jobs.js';
@@ -48,7 +48,7 @@ import { integrationRoutes } from './routes/integration.js';
 import { hermesRoutes } from './routes/hermes.js';
 import { dockerIdentity, fromName } from './integration/whoami.js';
 
-export { VERSION } from './version.js';
+export { RELEASE, VERSION } from './version.js';
 
 export interface BuildOptions {
   /** an in-memory database (tests) */
@@ -83,8 +83,9 @@ export async function buildApp(config: Config, opts: BuildOptions = {}): Promise
   await app.register(cookie);
   app.get('/api/health', async () => {
     const vault = existsSync(config.vault);
-    // writable: whether LifeOS may change the notes (LIFEOS_UID/GID, product brief 10 §1)
-    return { ok: true, version: VERSION, mode: config.mode, vault, writable: vault && vaultAccess(config.vault).writable };
+    // writable: whether LifeOS may change the notes (LIFEOS_UID/GID, product brief 10 §1);
+    // release: the image's LIFEOS_BUILD (a tag, a commit or dev, ADR-103)
+    return { ok: true, version: VERSION, release: RELEASE, mode: config.mode, vault, writable: vault && vaultAccess(config.vault).writable };
   });
   if (!existsSync(config.vault)) {
     app.log.error(`vault not found at ${config.vault}`);
